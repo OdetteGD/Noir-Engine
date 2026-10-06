@@ -80,7 +80,7 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
     private final float[] groundModel=new float[16];
     private float time;
 
-    public NoirRenderer(){ editorCamera.updateOrbit(); }
+    public NoirRenderer(){ setQualityPreset(QualityPreset.ULTRA); editorCamera.updateOrbit(); }
 
     @Override public void onSurfaceCreated(GL10 gl,EGLConfig config){
         GLES30.glClearColor(0.02f,0.03f,0.055f,1f);
