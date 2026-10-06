@@ -2,8 +2,10 @@ name: Noir Engine Release
 
 on:
   push:
+    branches:
+      - "release-v*"
     tags:
-      - "v*"
+
   workflow_dispatch:
     inputs:
       version:
@@ -44,8 +46,8 @@ jobs:
         id: version
         shell: bash
         run: |
-          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
-            VERSION="${GITHUB_REF_NAME#v}"
+          if [[ "$GITHUB_REF_NAME" == release-v* ]]; then
+            VERSION="${GITHUB_REF_NAME#release-v}"
           else
             VERSION="${{ inputs.version }}"
           fi
@@ -94,7 +96,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "${{ github.ref_name }}"
+          tag_name: "v${{ steps.version.outputs.version }}"
           name: "Noir 3D Game Engine v${{ steps.version.outputs.version }}"
           generate_release_notes: true
           files: app/build/outputs/apk/release/app-release.apk
