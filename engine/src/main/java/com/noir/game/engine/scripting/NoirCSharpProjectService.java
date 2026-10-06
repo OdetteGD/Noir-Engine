@@ -54,7 +54,7 @@ public final class NoirCSharpProjectService {
         return """
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net10.0-android</TargetFramework>
+    <TargetFramework>net10.0-android35.0</TargetFramework>
     <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
     <AndroidUseLatestPlatformSdk>true</AndroidUseLatestPlatformSdk>
     <OutputType>Library</OutputType>
