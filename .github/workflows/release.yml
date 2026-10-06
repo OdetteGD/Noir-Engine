@@ -62,23 +62,30 @@ jobs:
           grep -q 'android.intent.category.LAUNCHER' app/src/main/AndroidManifest.xml
           echo "Launcher activity verified: ProjectManagerActivity"
 
-      - name: Decode release keystore
-        if: ${{ secrets.NOIR_KEYSTORE_B64 != '' }}
+      - name: Build release APK
+        shell: bash
         env:
           NOIR_KEYSTORE_B64: ${{ secrets.NOIR_KEYSTORE_B64 }}
-        run: |
-          echo "$NOIR_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/noir-release.jks"
-
-      - name: Build signed release
-        env:
-          NOIR_KEYSTORE: ${{ secrets.NOIR_KEYSTORE_B64 != '' && format('{0}/noir-release.jks', runner.temp) || '' }}
           NOIR_STORE_PASSWORD: ${{ secrets.NOIR_STORE_PASSWORD }}
           NOIR_KEY_ALIAS: ${{ secrets.NOIR_KEY_ALIAS }}
           NOIR_KEY_PASSWORD: ${{ secrets.NOIR_KEY_PASSWORD }}
         run: |
+          # Use the configured release keystore when all signing secrets are present.
+          # Otherwise app/build.gradle falls back to the Android debug keystore so
+          # the release pipeline can still produce a testable APK.
+          if [[ -n "$NOIR_KEYSTORE_B64" && -n "$NOIR_STORE_PASSWORD" && -n "$NOIR_KEY_ALIAS" && -n "$NOIR_KEY_PASSWORD" ]]; then
+            echo "$NOIR_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/noir-release.jks"
+            export NOIR_KEYSTORE="$RUNNER_TEMP/noir-release.jks"
+            echo "Using configured Noir release keystore."
+          else
+            unset NOIR_KEYSTORE
+            echo "No complete release keystore configured; using debug signing."
+          fi
+
           gradle --no-daemon --stacktrace :app:assembleRelease
 
       - name: Verify APK
+        shell: bash
         run: |
           APK="app/build/outputs/apk/release/app-release.apk"
           test -f "$APK"
