@@ -7,6 +7,7 @@ import android.view.MotionEvent;
 import android.widget.EditText;
 import android.widget.Toast;
 import com.noir.game.engine.editor.*;
+import java.io.File;
 import com.noir.game.engine.animation.AnimationSystem;
 import com.noir.game.engine.render.NoirRenderer;
 import com.noir.game.engine.scene.NoirNode;
@@ -39,6 +40,7 @@ public final class NoirEditorView extends android.view.View {
         density=getResources().getDisplayMetrics().density;
         setFocusable(true);
         setWillNotDraw(false);
+        surface.setEditorTapListener(this::onEditorTap);
     }
     private float dp(float v){return v*density;}
     private void fill(Canvas c,int color,float l,float t,float r,float b){p.setColor(color);p.setStyle(Paint.Style.FILL);c.drawRect(l,t,r,b,p);}
@@ -59,6 +61,7 @@ public final class NoirEditorView extends android.view.View {
         drawBottom(c,w,h);
 
         if(state.playing) return;
+        drawViewportGizmo(c,w,h);
 
         // Docked panels. The middle viewport is intentionally left transparent.
         float contentTop=topBar+tabBar;
@@ -157,23 +160,38 @@ public final class NoirEditorView extends android.view.View {
     }
 
     private void drawAssets(Canvas c,float l,float t,float r,float b){
-        header(c,"ASSETS • PROJECT FILES",l,t);
-        String[] a={"Models","Textures","Materials","Animations","Scenes","Scripts","Shaders","Audio"};
-        float y=t+dp(64);
-        for(String s:a){text(c,"▸  "+s,l+dp(18),y,dp(13),0xffdce2ed);y+=dp(31);}
-        text(c,"LoftArena.glb",l+dp(36),y,dp(12),0xff8fa7ff);y+=dp(27);
-        text(c,"player.game",l+dp(36),y,dp(12),0xff8fa7ff);
+        header(c,"PROJECT • FILE BROWSER",l,t);
+        File root=state.projectRoot;
+        if(root==null){text(c,"No project opened",l+dp(18),t+dp(62),dp(12),0xff8794aa);return;}
+        text(c,root.getName(),l+dp(18),t+dp(52),dp(13),0xff8fa7ff);
+        File[] files=root.listFiles();
+        float y=t+dp(78);
+        if(files!=null){
+            Arrays.sort(files,(a,bx)->Boolean.compare(bx.isDirectory(),a.isDirectory()));
+            for(File f:files){
+                if(y>b-dp(30))break;
+                String mark=f.isDirectory()?"▸":"•";
+                String name=f.getName();
+                text(c,mark+" "+name,l+dp(18),y,dp(12),f.isDirectory()?0xffdce2ed:0xff9eb5df);
+                y+=dp(25);
+            }
+        }
+        text(c,"Recursive project browser • .game / assets / shaders / models",l+dp(18),b-dp(18),dp(9),0xff65738b);
     }
 
     private void drawAnimation(Canvas c,float l,float t,float r,float b){
         header(c,"ANIMATION • TIMELINE",l,t);
         float y=t+dp(62);
-        action(c,"ADD TRACK",l+dp(16),y,dp(86),0xff8fa7ff);
-        action(c,"KEYFRAME",l+dp(108),y,dp(82),0xff8fa7ff);
-        action(c,"AUTO KEY",l+dp(196),y,dp(76),0xff8fa7ff);
+        action(c,timeline.playing?"PAUSE":"PLAY",l+dp(16),y,dp(62),timeline.playing?0xffffd27d:0xff8fa7ff);
+        action(c,"ADD TRACK",l+dp(84),y,dp(86),0xff8fa7ff);
+        action(c,"KEYFRAME",l+dp(176),y,dp(82),0xff8fa7ff);
+        action(c,"AUTO KEY",l+dp(264),y,dp(76),0xff8fa7ff);
+        text(c,timeline.timecode(timeline.playhead),r-dp(78),y,dp(10),0xffdce2ed);
         y+=dp(48);
         p.setColor(0xff0a101a);c.drawRect(l+dp(14),y,r-dp(14),b-dp(18),p);
         for(int i=0;i<10;i++){float x=l+dp(14)+(r-l-dp(28))*i/10f;p.setColor(0xff26344c);c.drawLine(x,y,x,b-dp(18),p);}
+        float px=l+dp(14)+(r-l-dp(28))*(timeline.playhead/Math.max(0.001f,timeline.clip.duration));
+        p.setColor(0xffffc857);p.setStrokeWidth(dp(2));c.drawLine(px,y,px,b-dp(18),p);
         text(c,"Player/Transform",l+dp(24),y+dp(25),dp(10),0xffdce2ed);
         text(c,"0.0s                       1.0s                       2.0s",l+dp(24),y+dp(48),dp(9),0xff71809b);
     }
@@ -226,6 +244,34 @@ public final class NoirEditorView extends android.view.View {
         header(c,"CONSOLE • ERRORS • DEBUG",l,t);
         float y=t+dp(60);for(String s:state.console){text(c,s,l+dp(16),y,dp(10),0xff9fc1a9);y+=dp(20);if(y>b-dp(55))break;}
         action(c,"CLEAR",l+dp(16),b-dp(42),dp(58),0xff8fa7ff);
+    }
+
+    private void drawViewportGizmo(Canvas c,float w,float h){
+        if(state.selected==null)return;
+        float[] screen=renderer.projectWorldToScreen(state.selected.px,state.selected.py,state.selected.pz);
+        if(screen==null)return;
+        float gx=screen[0],gy=screen[1];
+        if(gx<0||gy<0||gx>w||gy>h)return;
+        p.setStrokeWidth(dp(3));
+        p.setStyle(Paint.Style.STROKE);
+        p.setColor(0xffff5f67);c.drawLine(gx,gy,gx+dp(58),gy,p);
+        p.setColor(0xff63d5ff);c.drawLine(gx,gy,gx,gy-dp(58),p);
+        p.setColor(0xff7dff91);c.drawLine(gx,gy,gx-dp(42),gy+dp(42),p);
+        p.setStyle(Paint.Style.FILL);
+        round(c,0xff101827,gx-dp(28),gy-dp(28),gx+dp(28),gy+dp(28),dp(7));
+        text(c,state.tool.name(),gx-dp(20),gy+dp(4),dp(9),Color.WHITE);
+    }
+
+    private void onEditorTap(float x,float y){
+        NoirNode best=null;float bestD=Float.MAX_VALUE;
+        for(NoirNode n:tree.visible()){
+            float[] q=renderer.projectWorldToScreen(n.px,n.py,n.pz);
+            if(q==null)continue;
+            float dx=q[0]-x,dy=q[1]-y,d=dx*dx+dy*dy;
+            if(d<bestD && d<dp(70)*dp(70)){best=n;bestD=d;}
+        }
+        if(best!=null){state.select(best);state.log("Viewport selected "+best.name+" • gizmo active");invalidate();}
+        else {state.log("Viewport click: no selectable node under cursor");invalidate();}
     }
 
     private void property(Canvas c,String name,String fmt,float l,float y,float a,float b,float d){
@@ -354,6 +400,9 @@ public final class NoirEditorView extends android.view.View {
             return false;
         }
         if(x<leftW){
+            if(tab==3 && y>contentTop+dp(42) && y<contentTop+dp(105)){
+                if(x<dp(82)){timeline.playing=!timeline.playing;state.log(timeline.playing?"Animation playback started":"Animation playback paused");invalidate();return true;}
+            }
             if(tab==4 && y>contentBottom-dp(75)){state.log("Script command executed: compile / format");invalidate();return true;}
             if(tab==6 && y>contentBottom-dp(75)){addNode();return true;}
             if(tab==8 && y>contentBottom-dp(75)){
