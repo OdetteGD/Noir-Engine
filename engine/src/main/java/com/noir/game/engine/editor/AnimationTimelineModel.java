@@ -12,6 +12,7 @@ public final class AnimationTimelineModel {
     public int selectedTrack=-1;
     public float playhead;
     public boolean autoKey=true;
+    public boolean playing=false;
     public boolean loop=true;
     public AnimationTimelineModel(){clip=new AnimationSystem.Clip("Player_Idle",4.0f);clip.loop=true;clips.add(clip);AnimationSystem.Track pos=new AnimationSystem.Track("Player/position");pos.add(new AnimationSystem.Key(0,0,1.7f,0));pos.add(new AnimationSystem.Key(2,0,1.72f,0));pos.add(new AnimationSystem.Key(4,0,1.7f,0));clip.tracks.add(pos);}
     public void newClip(String name,float duration){clip=new AnimationSystem.Clip(name,Math.max(.01f,duration));clip.loop=loop;clips.add(clip);selectedTrack=-1;playhead=0;}
