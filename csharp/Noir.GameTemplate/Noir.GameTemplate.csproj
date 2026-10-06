@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0-android</TargetFramework>
-    <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>\n    <AndroidUseLatestPlatformSdk>true</AndroidUseLatestPlatformSdk>
     <OutputType>Library</OutputType>
     <RootNamespace>Noir.Game</RootNamespace>
     <AssemblyName>Noir.Game</AssemblyName>
