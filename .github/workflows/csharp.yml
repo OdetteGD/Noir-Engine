@@ -20,14 +20,14 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
+      - name: Install .NET for Android workloads
+        run: dotnet workload install android wasm-tools
+
       - name: Restore compiler host
         run: dotnet restore csharp/Noir.CSharp.Compiler/Noir.CSharp.Compiler.csproj
 
       - name: Build Roslyn compiler host
         run: dotnet build csharp/Noir.CSharp.Compiler/Noir.CSharp.Compiler.csproj --configuration Release --no-restore
-
-      - name: Install .NET for Android workload
-        run: dotnet workload install android
 
       - name: Build mobile C# SDK
         run: dotnet build csharp/Noir.Mobile.Scripting/Noir.Mobile.Scripting.csproj -f net8.0-android --configuration Release
