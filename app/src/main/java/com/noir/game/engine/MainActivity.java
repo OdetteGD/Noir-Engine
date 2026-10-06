@@ -23,7 +23,7 @@ public final class MainActivity extends Activity {
 
         String projectPath=getIntent().getStringExtra("project_path");
         NoirScene scene=loadProjectScene(projectPath);
-        EditorState editor=new EditorState(scene);
+        EditorState editor=new EditorState(scene,projectPath);
         renderer=new NoirRenderer();
 
         NoirSurface surface=new NoirSurface(this,renderer);
