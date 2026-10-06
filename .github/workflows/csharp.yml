@@ -1,0 +1,41 @@
+name: Noir C# Mobile Scripting
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  csharp:
+    name: Validate Noir C# SDK and mobile project
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore compiler host
+        run: dotnet restore csharp/Noir.CSharp.Compiler/Noir.CSharp.Compiler.csproj
+
+      - name: Build Roslyn compiler host
+        run: dotnet build csharp/Noir.CSharp.Compiler/Noir.CSharp.Compiler.csproj --configuration Release --no-restore
+
+      - name: Install .NET for Android workload
+        run: dotnet workload install android
+
+      - name: Build mobile C# SDK
+        run: dotnet build csharp/Noir.Mobile.Scripting/Noir.Mobile.Scripting.csproj -f net8.0-android --configuration Release
+
+      - name: Build mobile C# game template
+        run: dotnet build csharp/Noir.GameTemplate/Noir.GameTemplate.csproj -f net8.0-android --configuration Release
+
+      - name: Validate sample C# script
+        shell: bash
+        run: |
+          dotnet run --project csharp/Noir.CSharp.Compiler/Noir.CSharp.Compiler.csproj --configuration Release --             validate csharp/Noir.GameTemplate/PlayerController.cs
