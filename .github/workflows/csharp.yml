@@ -1,4 +1,4 @@
-name: Noir C# Mobile Scripting
+name: Noir C# Mobile Scripting\n\n# .NET 10 keeps the Android workload on a supported TFM; net8.0-android is EOL.
 
 on:
   workflow_dispatch:
@@ -15,13 +15,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up .NET 8
+      - name: Set up .NET 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "8.0.x"
+          dotnet-version: "10.0.x"
 
       - name: Install .NET for Android workloads
-        run: dotnet workload install android wasm-tools
+        run: dotnet workload install android wasm-tools --skip-manifest-update
 
       - name: Restore compiler host
         run: dotnet restore csharp/Noir.CSharp.Compiler/Noir.CSharp.Compiler.csproj
@@ -30,7 +30,7 @@ jobs:
         run: dotnet build csharp/Noir.CSharp.Compiler/Noir.CSharp.Compiler.csproj --configuration Release --no-restore
 
       - name: Build mobile C# SDK
-        run: dotnet build csharp/Noir.Mobile.Scripting/Noir.Mobile.Scripting.csproj -f net8.0-android --configuration Release
+        run: dotnet build csharp/Noir.Mobile.Scripting/Noir.Mobile.Scripting.csproj -f net10.0-android --configuration Release
 
       - name: Build mobile C# game template
         run: dotnet build csharp/Noir.GameTemplate/Noir.GameTemplate.csproj -f net8.0-android --configuration Release
