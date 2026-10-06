@@ -16,10 +16,10 @@ Java_com_noir_game_engine_NoirNative_stepRigidBody(JNIEnv* env,jclass,jfloatArra
     if(!state || env->GetArrayLength(state)<6)return;
     jfloat* s=env->GetFloatArrayElements(state,nullptr);
     float h=std::max(0.0f,std::min(dt,0.05f));
-    s[3]+=gravity*h;
-    s[0]+=s[3]*0.0f;
+    s[4]+=gravity*h;
+    s[0]+=s[3]*h;
     s[1]+=s[4]*h;
-    s[2]+=s[5]*0.0f;
+    s[2]+=s[5]*h;
     if(s[1]<0.0f){s[1]=0.0f;s[4]=0.0f;}
     env->ReleaseFloatArrayElements(state,s,0);
 }
