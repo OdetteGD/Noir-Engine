@@ -236,13 +236,17 @@ public final class NoirEditorView extends android.view.View {
     private void button(Canvas c,float x,float y,float w,float h,String s,boolean active){round(c,active?0xff3d5d9c:0xff253047,x,y,x+w,y+h,dp(7));text(c,s,x+dp(10),y+dp(25),dp(10),Color.WHITE);}
     private String icon(NoirNode.Kind k){switch(k){case CAMERA3D:return"◉";case LIGHT3D:return"✦";case MESH3D:return"◇";case CHARACTER3D:return"♙";case WORLD_ENVIRONMENT:return"☼";default:return"□";}}
 
-    private void togglePlay(){
-        state.playing=!state.playing;
-        surface.setRuntimeMode(state.playing);
-        state.log(state.playing?"Play mode entered — editor UI hidden":"Play mode stopped — editor restored");
-        Toast.makeText(getContext(),state.playing?"NOIR PLAY MODE":"NOIR EDITOR MODE",Toast.LENGTH_SHORT).show();
+    public void setPlaying(boolean playing){
+        state.playing=playing;
+        surface.setRuntimeMode(playing);
+        setVisibility(playing?INVISIBLE:VISIBLE);
+        state.log(playing?"Play mode entered — editor UI hidden":"Play mode stopped — editor restored");
         invalidate();
     }
+
+    public void stopPlay(){setPlaying(false);}
+
+    private void togglePlay(){setPlaying(!state.playing);}
 
     private void addNode(){
         String[] kinds={"Node3D","Mesh3D","Character3D","Camera3D","Light3D","StaticBody3D","RigidBody3D","Area3D","Particles3D","Water3D"};
