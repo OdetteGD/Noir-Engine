@@ -3,6 +3,7 @@ project(noir3d)
 
 add_library(noir3d SHARED
     noir3d.cpp
+    noir_physics.cpp
 )
 
 target_compile_features(noir3d PRIVATE cxx_std_17)
