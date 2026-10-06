@@ -11,8 +11,9 @@ import javax.microedition.khronos.egl.EGLDisplay;
 /** Full-screen GPU viewport with editor orbit and runtime mobile look. */
 public final class NoirSurface extends GLSurfaceView {
     private final NoirRenderer renderer;
-    private float lastX,lastY;
+    private float lastX,lastY,startX,startY;
     private boolean dragging;
+    private boolean runtimeMoveTouch;
     private float pinchDistance;
 
     public NoirSurface(Context c,NoirRenderer r){
@@ -61,18 +62,25 @@ public final class NoirSurface extends GLSurfaceView {
         }
         switch(e.getActionMasked()){
             case MotionEvent.ACTION_DOWN:
-                lastX=e.getX();lastY=e.getY();dragging=true;return true;
+                lastX=e.getX();lastY=e.getY();startX=e.getX();startY=e.getY();
+                runtimeMoveTouch=renderer.mode()==NoirRenderer.Mode.RUNTIME && e.getX()<getWidth()*0.42f;
+                dragging=true;return true;
             case MotionEvent.ACTION_MOVE:
                 if(dragging){
                     float dx=e.getX()-lastX,dy=e.getY()-lastY;
-                    if(renderer.mode()==NoirRenderer.Mode.RUNTIME) renderer.runtimeLook(dx,dy);
-                    else renderer.orbit(dx,dy);
+                    if(renderer.mode()==NoirRenderer.Mode.RUNTIME){
+                        if(runtimeMoveTouch){
+                            float sx=Math.max(-1f,Math.min(1f,(e.getX()-startX)/220f));
+                            float sy=Math.max(-1f,Math.min(1f,(startY-e.getY())/220f));
+                            renderer.runtimeMove(sy,sx,0.016f);
+                        }else renderer.runtimeLook(dx,dy);
+                    }else renderer.orbit(dx,dy);
                     lastX=e.getX();lastY=e.getY();
                 }
                 return true;
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
-                dragging=false;pinchDistance=0;return true;
+                dragging=false;runtimeMoveTouch=false;pinchDistance=0;return true;
             default:return true;
         }
     }
