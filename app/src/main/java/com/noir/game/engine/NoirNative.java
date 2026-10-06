@@ -18,4 +18,7 @@ public final class NoirNative {
 
     public static native String engineVersion();
     public static native long engineBuildId();
+    public static native void stepRigidBody(float[] state,float dt,float gravity);
+    public static native float raySphereHit(float[] rayOrigin,float[] rayDir,float[] center,float radius);
+    public static native String mobilePbrShader();
 }
