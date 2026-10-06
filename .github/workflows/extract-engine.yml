@@ -14,49 +14,83 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Extract Noir Engine v0.4
-        shell: bash
+      - name: Find ZIP
+        id: find_zip
         run: |
           set -e
 
-          ZIP="uploads/Noir3D-Game-Engine-v0.4.zip"
-          TEMP_DIR="_noir_extract"
+          ZIP=$(find . -type f -iname "*.zip" \
+            ! -path "./.git/*" \
+            | head -n 1)
 
-          echo "Checking ZIP..."
-          test -f "$ZIP"
+          if [ -z "$ZIP" ]; then
+            echo "ERROR: No ZIP found."
+            find . -maxdepth 4 -type f
+            exit 1
+          fi
 
-          rm -rf "$TEMP_DIR"
-          mkdir -p "$TEMP_DIR"
+          echo "Found: $ZIP"
+          echo "zip_path=$ZIP" >> "$GITHUB_OUTPUT"
 
-          echo "Extracting..."
-          unzip -o "$ZIP" -d "$TEMP_DIR"
+      - name: Extract ZIP
+        run: |
+          set -e
 
-          echo "Moving engine files to repository root..."
+          ZIP="${{ steps.find_zip.outputs.zip_path }}"
 
-          # Handle ZIPs that contain a single top-level directory.
-          if [ "$(find "$TEMP_DIR" -mindepth 1 -maxdepth 1 | wc -l)" -eq 1 ] && \
-             [ -d "$(find "$TEMP_DIR" -mindepth 1 -maxdepth 1 -type d)" ]; then
-            ROOT="$(find "$TEMP_DIR" -mindepth 1 -maxdepth 1 -type d)"
-          else
-            ROOT="$TEMP_DIR"
+          rm -rf _noir_extract
+          mkdir -p _noir_extract
+
+          unzip -o "$ZIP" -d _noir_extract
+
+      - name: Copy Noir Engine
+        run: |
+          set -e
+
+          ROOT="_noir_extract"
+
+          COUNT=$(find "$ROOT" -mindepth 1 -maxdepth 1 | wc -l)
+
+          if [ "$COUNT" -eq 1 ] && \
+             [ -d "$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d)" ]; then
+
+            ROOT=$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d)
+
           fi
 
           cp -a "$ROOT"/. .
 
-          echo "Cleaning temporary files..."
-          rm -rf "$TEMP_DIR"
-          rm -f "$ZIP"
+      - name: Remove imported GitHub workflows
+        run: |
+          echo "Removing workflows that require workflow permission..."
 
-          echo "Extracted project:"
-          find . -maxdepth 3 -type f | sort
+          find .github/workflows \
+            -type f \
+            ! -name "extract-engine.yml" \
+            -delete 2>/dev/null || true
 
-      - name: Commit extracted project
-        shell: bash
+      - name: Cleanup
+        run: |
+          rm -rf _noir_extract
+
+          find . -type f -iname "*.zip" \
+            ! -path "./.git/*" \
+            -delete
+
+      - name: Show project
+        run: |
+          echo "===== NOIR ENGINE ====="
+          find . -maxdepth 4 -type f \
+            ! -path "./.git/*" \
+            | sort
+
+      - name: Commit and push
         run: |
           set -e
 
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add -A
 
@@ -65,5 +99,5 @@ jobs:
             exit 0
           fi
 
-          git commit -m "Extract Noir 3D Game Engine v0.4"
+          git commit -m "Add Noir 3D Game Engine v0.4"
           git push
