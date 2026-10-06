@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>net8.0;net8.0-android</TargetFrameworks>
+    <TargetFrameworks>net10.0;net10.0-android</TargetFrameworks>
     <RootNamespace>Noir</RootNamespace>
     <AssemblyName>Noir.Mobile.Scripting</AssemblyName>
     <Nullable>enable</Nullable>
@@ -10,8 +10,8 @@
     <NoWarn>$(NoWarn);CA1422</NoWarn>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(TargetFramework)' == 'net8.0-android'">
-    <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-android'">
+    <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>\n    <AndroidUseLatestPlatformSdk>true</AndroidUseLatestPlatformSdk>
     <DefineConstants>$(DefineConstants);NOIR_ANDROID</DefineConstants>
   </PropertyGroup>
 </Project>
