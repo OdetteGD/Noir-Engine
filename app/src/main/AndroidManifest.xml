@@ -9,13 +9,17 @@
     <application
         android:theme="@style/AppTheme"
         android:label="Noir 3D Game Engine"
+        android:icon="@drawable/ic_noir_launcher"
+        android:roundIcon="@drawable/ic_noir_launcher"
         android:allowBackup="false"
         android:supportsRtl="true"
         android:hardwareAccelerated="true">
         <activity
             android:name=".ProjectManagerActivity"
+            android:label="Noir 3D Game Engine"
             android:screenOrientation="landscape"
-            android:exported="true">
+            android:exported="true"
+            android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
