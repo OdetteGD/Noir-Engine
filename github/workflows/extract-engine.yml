@@ -19,7 +19,7 @@ jobs:
         run: |
           set -e
 
-          ZIP="uploads/Noir3D-Game-Engine-v0.4i.zip"
+          ZIP="uploads/Noir3D-Game-Engine-v0.4.zip"
           TEMP_DIR="_noir_extract"
 
           echo "Checking ZIP..."
