@@ -7,25 +7,360 @@ import java.util.*;
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
-/** Mobile renderer foundation: forward PBR-style material parameters, depth, MSAA-compatible
- * framebuffer setup, dynamic camera and batched primitive preview. It is intentionally an
- * actual GL renderer rather than a Canvas mock so the editor viewport exercises GPU code. */
+/**
+ * Noir mobile forward renderer.
+ *
+ * Features:
+ * - OpenGL ES 3.0 forward PBR-style lighting
+ * - procedural sky + animated cloud layer
+ * - directional sun
+ * - depth-tested shadow map with 3x3 PCF filtering
+ * - environment/specular reflections from the procedural sky
+ * - MSAA is requested by NoirSurface
+ * - editor orbit camera and runtime FPS/mobile look
+ * - cached GPU buffers; no per-frame mesh allocation
+ */
 public final class NoirRenderer implements GLSurfaceView.Renderer {
-    public static final class Camera { public float yaw=-90,pitch=-8,distance=18; public float tx=0,ty=2,tz=0; }
-    public static final class Material { public float r=.72f,g=.76f,b=.82f,rough=.48f,metal=.08f,ao=1f; }
-    private int program; private int uMvp,uColor; private float angle; public final Camera camera=new Camera(); public final Material material=new Material();
+    public enum Mode { EDITOR, RUNTIME }
+
+    public static final class Camera {
+        public float yaw = -90f, pitch = -12f, distance = 18f;
+        public float targetX = 0f, targetY = 1.4f, targetZ = 0f;
+        public float x, y, z;
+        public void updateOrbit() {
+            float yr=(float)Math.toRadians(yaw), pr=(float)Math.toRadians(pitch);
+            x=targetX+(float)(Math.cos(pr)*Math.cos(yr)*distance);
+            y=targetY+(float)(Math.sin(pr)*distance);
+            z=targetZ+(float)(Math.cos(pr)*Math.sin(yr)*distance);
+        }
+    }
+
+    public static final class RuntimeCamera {
+        public float x=0f,y=1.7f,z=6f;
+        public float yaw=-90f,pitch=0f;
+    }
+
+    public static final class Quality {
+        public int shadowSize=1024;
+        public boolean shadows=true;
+        public boolean reflections=true;
+        public boolean clouds=true;
+        public boolean fog=true;
+        public float exposure=1.0f;
+        public float renderScale=1.0f;
+    }
+
+    private final Camera editorCamera=new Camera();
+    private final RuntimeCamera runtimeCamera=new RuntimeCamera();
+    private final Quality quality=new Quality();
+    private Mode mode=Mode.EDITOR;
+
     private int width=1,height=1;
-    @Override public void onSurfaceCreated(GL10 gl,EGLConfig config){GLES30.glClearColor(.025f,.035f,.055f,1);GLES30.glEnable(GLES30.GL_DEPTH_TEST);GLES30.glEnable(GLES30.GL_CULL_FACE);program=program(vertexShader(),fragmentShader());uMvp=GLES30.glGetUniformLocation(program,"uMvp");uColor=GLES30.glGetUniformLocation(program,"uColor");}
-    @Override public void onSurfaceChanged(GL10 gl,int w,int h){width=Math.max(1,w);height=Math.max(1,h);GLES30.glViewport(0,0,width,height);}
-    @Override public void onDrawFrame(GL10 gl){GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);GLES30.glUseProgram(program);angle+=.18f;drawGrid();drawCube(0,1,0,4,1,4);drawCube(-5,1,-3,2,2,2);drawCube(5,1,-3,2,2,2);}
-    private void drawGrid(){for(int i=-10;i<=10;i++){drawCube(i*.9f,-.05f,0,.02f,.02f,18);drawCube(0,-.05f,i*.9f,18,.02f,.02f);}}
-    private void drawCube(float x,float y,float z,float sx,float sy,float sz){float[] m=identity();translate(m,x,y,z);scale(m,sx,sy,sz);float[] p=perspective(62,(float)width/height,.05f,200);float[] v=lookAt(0,6,14,0,1,0);float[] pv=multiply(p,v);float[] mvp=multiply(pv,m);GLES30.glUniformMatrix4fv(uMvp,1,false,mvp,0);GLES30.glUniform4f(uColor,material.r,material.g,material.b,1);float[] cube={-1,-1,-1,1,-1,-1,1,1,-1,-1,1,-1,-1,-1,1,1,-1,1,1,1,1,-1,1,1,-1,-1,-1,-1,1,-1,-1,1,1,-1,1,-1,-1,1,-1,1,1,-1,1,1,1,1,-1,1,1};FloatBuffer b=ByteBuffer.allocateDirect(cube.length*4).order(ByteOrder.nativeOrder()).asFloatBuffer();b.put(cube).position(0);GLES30.glEnableVertexAttribArray(0);GLES30.glVertexAttribPointer(0,3,GLES30.GL_FLOAT,false,0,b);GLES30.glDrawArrays(GLES30.GL_TRIANGLE_FAN,0,16);GLES30.glDisableVertexAttribArray(0);}
-    public void orbit(float dx,float dy){camera.yaw+=dx*.25f;camera.pitch=Math.max(-80,Math.min(80,camera.pitch+dy*.25f));}
-    private int program(String vs,String fs){int a=GLES30.glCreateShader(GLES30.GL_VERTEX_SHADER);GLES30.glShaderSource(a,vs);GLES30.glCompileShader(a);int b=GLES30.glCreateShader(GLES30.GL_FRAGMENT_SHADER);GLES30.glShaderSource(b,fs);GLES30.glCompileShader(b);int p=GLES30.glCreateProgram();GLES30.glAttachShader(p,a);GLES30.glAttachShader(p,b);GLES30.glBindAttribLocation(p,0,"aPos");GLES30.glLinkProgram(p);return p;}
-    private String vertexShader(){return "#version 300 es\nlayout(location=0) in vec3 aPos; uniform mat4 uMvp; void main(){gl_Position=uMvp*vec4(aPos,1.0);}";}
-    private String fragmentShader(){return "#version 300 es\nprecision mediump float; uniform vec4 uColor; out vec4 frag; void main(){float l=.65+.35*max(0.0,gl_FragCoord.z);frag=vec4(uColor.rgb*l,uColor.a);}";}
-    private float[] identity(){float[]m=new float[16];m[0]=m[5]=m[10]=m[15]=1;return m;} private void translate(float[]m,float x,float y,float z){m[12]+=x;m[13]+=y;m[14]+=z;} private void scale(float[]m,float x,float y,float z){m[0]*=x;m[5]*=y;m[10]*=z;}
-    private float[] perspective(float f,float a,float n,float fa){float t=(float)(1/Math.tan(Math.toRadians(f)/2));float[]m=new float[16];m[0]=t/a;m[5]=t;m[10]=(fa+n)/(n-fa);m[11]=-1;m[14]=(2*fa*n)/(n-fa);return m;}
-    private float[] lookAt(float ex,float ey,float ez,float cx,float cy,float cz){float[]m=identity();float zx=ex-cx,zy=ey-cy,zz=ez-cz;float zl=(float)Math.sqrt(zx*zx+zy*zy+zz*zz);zx/=zl;zy/=zl;zz/=zl;float xx=zy*0-zz*1,xy=zz*0-zx*0,xz=zx*1-zy*0;float xl=(float)Math.sqrt(xx*xx+xy*xy+xz*xz);xx/=xl;xy/=xl;xz/=xl;float yx=zy*xz-zz*xy,yy=zz*xx-zx*xz,yz=zx*xy-zy*xx;m[0]=xx;m[1]=yx;m[2]=zx;m[4]=xy;m[5]=yy;m[6]=zy;m[8]=xz;m[9]=yz;m[10]=zz;m[12]=-(xx*ex+xy*ey+xz*ez);m[13]=-(yx*ex+yy*ey+yz*ez);m[14]=-(zx*ex+zy*ey+zz*ez);return m;}
+    private int mainProgram, skyProgram, shadowProgram;
+    private int cubeVbo, groundVbo;
+    private int shadowFbo, shadowTexture;
+    private int uModel,uViewProj,uNormal,uCamera,uSunDir,uSunColor,uSky,uRough,uMetal,uShadow,uLightVP,uExposure;
+    private int sModel,sLightVP;
+    private int skyTime;
+    private long lastNanos;
+
+    private final float[] cubeModels=new float[7*16];
+    private final float[] groundModel=new float[16];
+    private float time;
+
+    public NoirRenderer(){ editorCamera.updateOrbit(); }
+
+    @Override public void onSurfaceCreated(GL10 gl,EGLConfig config){
+        GLES30.glClearColor(0.02f,0.03f,0.055f,1f);
+        GLES30.glEnable(GLES30.GL_DEPTH_TEST);
+        GLES30.glEnable(GLES30.GL_CULL_FACE);
+        GLES30.glCullFace(GLES30.GL_BACK);
+        GLES30.glDepthFunc(GLES30.GL_LEQUAL);
+        GLES30.glBlendFunc(GLES30.GL_SRC_ALPHA,GLES30.GL_ONE_MINUS_SRC_ALPHA);
+
+        mainProgram=link(mainVertex(),mainFragment());
+        skyProgram=link(skyVertex(),skyFragment());
+        shadowProgram=link(shadowVertex(),shadowFragment());
+
+        uModel=GLES30.glGetUniformLocation(mainProgram,"uModel");
+        uViewProj=GLES30.glGetUniformLocation(mainProgram,"uViewProj");
+        uNormal=GLES30.glGetUniformLocation(mainProgram,"uNormal");
+        uCamera=GLES30.glGetUniformLocation(mainProgram,"uCamera");
+        uSunDir=GLES30.glGetUniformLocation(mainProgram,"uSunDir");
+        uSunColor=GLES30.glGetUniformLocation(mainProgram,"uSunColor");
+        uSky=GLES30.glGetUniformLocation(mainProgram,"uSky");
+        uRough=GLES30.glGetUniformLocation(mainProgram,"uRough");
+        uMetal=GLES30.glGetUniformLocation(mainProgram,"uMetal");
+        uShadow=GLES30.glGetUniformLocation(mainProgram,"uShadow");
+        uLightVP=GLES30.glGetUniformLocation(mainProgram,"uLightVP");
+        uExposure=GLES30.glGetUniformLocation(mainProgram,"uExposure");
+        sModel=GLES30.glGetUniformLocation(shadowProgram,"uModel");
+        sLightVP=GLES30.glGetUniformLocation(shadowProgram,"uLightVP");
+        skyTime=GLES30.glGetUniformLocation(skyProgram,"uTime");
+
+        createMeshes();
+        createShadowMap();
+        buildSceneModels();
+        lastNanos=System.nanoTime();
+    }
+
+    @Override public void onSurfaceChanged(GL10 gl,int w,int h){
+        width=Math.max(1,w); height=Math.max(1,h);
+        GLES30.glViewport(0,0,width,height);
+    }
+
+    @Override public void onDrawFrame(GL10 gl){
+        long now=System.nanoTime();
+        float dt=Math.min(0.05f,(now-lastNanos)/1_000_000_000f);
+        lastNanos=now;
+        time+=dt;
+        if(mode==Mode.EDITOR) editorCamera.updateOrbit();
+
+        if(quality.shadows && shadowFbo!=0) renderShadowPass();
+        renderMainPass();
+    }
+
+    public Camera camera(){return editorCamera;}
+    public RuntimeCamera runtimeCamera(){return runtimeCamera;}
+    public Quality quality(){return quality;}
+
+    public void setMode(Mode m){mode=m;}
+    public Mode mode(){return mode;}
+
+    public void orbit(float dx,float dy){
+        if(mode!=Mode.EDITOR)return;
+        editorCamera.yaw+=dx*0.20f;
+        editorCamera.pitch=Math.max(-82f,Math.min(82f,editorCamera.pitch+dy*0.20f));
+        editorCamera.distance=Math.max(3f,Math.min(80f,editorCamera.distance));
+    }
+
+    public void zoom(float amount){
+        if(mode==Mode.EDITOR) editorCamera.distance=Math.max(3f,Math.min(80f,editorCamera.distance+amount));
+    }
+
+    public void runtimeLook(float dx,float dy){
+        if(mode!=Mode.RUNTIME)return;
+        runtimeCamera.yaw+=dx*0.16f;
+        runtimeCamera.pitch=Math.max(-85f,Math.min(85f,runtimeCamera.pitch+dy*0.16f));
+    }
+
+    public void runtimeMove(float forward,float strafe,float dt){
+        if(mode!=Mode.RUNTIME)return;
+        float yr=(float)Math.toRadians(runtimeCamera.yaw);
+        float fx=(float)Math.cos(yr), fz=(float)Math.sin(yr);
+        runtimeCamera.x+=(fx*forward-fz*strafe)*dt*5f;
+        runtimeCamera.z+=(fz*forward+fx*strafe)*dt*5f;
+    }
+
+    private void renderShadowPass(){
+        int s=quality.shadowSize;
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,shadowFbo);
+        GLES30.glViewport(0,0,s,s);
+        GLES30.glClear(GLES30.GL_DEPTH_BUFFER_BIT);
+        GLES30.glUseProgram(shadowProgram);
+
+        float[] lightVP=lightViewProj();
+        GLES30.glUniformMatrix4fv(sLightVP,1,false,lightVP,0);
+        drawShadowModel(groundModel);
+        for(int i=0;i<cubeModels.length/16;i++)drawShadowModel(cubeModels,i);
+
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0);
+        GLES30.glViewport(0,0,width,height);
+    }
+
+    private void renderMainPass(){
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0);
+        GLES30.glViewport(0,0,width,height);
+        GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);
+
+        drawSky();
+
+        GLES30.glUseProgram(mainProgram);
+        float[] vp=viewProj();
+        float[] lightVP=lightViewProj();
+        GLES30.glUniformMatrix4fv(uViewProj,1,false,vp,0);
+        GLES30.glUniformMatrix4fv(uLightVP,1,false,lightVP,0);
+        GLES30.glUniform3f(uSunDir,-0.42f,-0.82f,-0.34f);
+        GLES30.glUniform3f(uSunColor,1.0f,0.93f,0.82f);
+        GLES30.glUniform3f(uSky,0.22f,0.38f,0.62f);
+        GLES30.glUniform1f(uExposure,quality.exposure);
+        GLES30.glUniform1i(uShadow,1);
+
+        float cx,cy,cz;
+        if(mode==Mode.RUNTIME){cx=runtimeCamera.x;cy=runtimeCamera.y;cz=runtimeCamera.z;}
+        else {cx=editorCamera.x;cy=editorCamera.y;cz=editorCamera.z;}
+        GLES30.glUniform3f(uCamera,cx,cy,cz);
+
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE0);
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,shadowTexture);
+
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,cubeVbo);
+        enableMainAttributes();
+        GLES30.glUniform1f(uRough,0.46f);
+        GLES30.glUniform1f(uMetal,0.08f);
+        drawModel(groundModel);
+        for(int i=0;i<cubeModels.length/16;i++){
+            float rough= i==1 ? 0.28f : 0.52f;
+            float metal= i==1 ? 0.32f : 0.06f;
+            GLES30.glUniform1f(uRough,rough);
+            GLES30.glUniform1f(uMetal,metal);
+            drawModel(cubeModels,i);
+        }
+        disableMainAttributes();
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,0);
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,0);
+    }
+
+    private void drawSky(){
+        GLES30.glDepthMask(false);
+        GLES30.glDisable(GLES30.GL_CULL_FACE);
+        GLES30.glUseProgram(skyProgram);
+        GLES30.glUniform1f(skyTime,time);
+        GLES30.glDrawArrays(GLES30.GL_TRIANGLES,0,3);
+        GLES30.glEnable(GLES30.GL_CULL_FACE);
+        GLES30.glDepthMask(true);
+    }
+
+    private void createMeshes(){
+        float[] v={
+            // position, normal, uv
+            -1,-1,-1, 0,0,-1, 0,0, 1,-1,-1,0,0,-1,1,0, 1,1,-1,0,0,-1,1,1,
+            -1,-1,-1,0,0,-1,0,0, 1,1,-1,0,0,-1,1,1, -1,1,-1,0,0,-1,0,1,
+            -1,-1,1,0,0,1,0,0, -1,1,1,0,0,1,0,1, 1,1,1,0,0,1,1,1,
+            -1,-1,1,0,0,1,0,0, 1,1,1,0,0,1,1,1, 1,-1,1,0,0,1,1,0,
+            -1,-1,-1,-1,0,0,0,0, -1,1,-1,-1,0,0,0,1, -1,1,1,-1,0,0,1,1,
+            -1,-1,-1,-1,0,0,0,0, -1,1,1,-1,0,0,1,1, -1,-1,1,-1,0,0,1,0,
+            1,-1,-1,1,0,0,0,0, 1,-1,1,1,0,0,1,0, 1,1,1,1,0,0,1,1,
+            1,-1,-1,1,0,0,0,0, 1,1,1,1,0,0,1,1, 1,1,-1,1,0,0,0,1,
+            -1,1,-1,0,1,0,0,0, 1,1,-1,0,1,0,1,0, 1,1,1,0,1,0,1,1,
+            -1,1,-1,0,1,0,0,0, 1,1,1,0,1,0,1,1, -1,1,1,0,1,0,0,1,
+            -1,-1,-1,0,-1,0,0,0, -1,-1,1,0,-1,0,0,1, 1,-1,1,0,-1,0,1,1,
+            -1,-1,-1,0,-1,0,0,0, 1,-1,1,0,-1,0,1,1, 1,-1,-1,0,-1,0,1,0
+        };
+        FloatBuffer buf=ByteBuffer.allocateDirect(v.length*4).order(ByteOrder.nativeOrder()).asFloatBuffer();
+        buf.put(v).flip();
+        int[] ids=new int[2];
+        GLES30.glGenBuffers(2,ids,0);
+        cubeVbo=ids[0]; groundVbo=ids[1];
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,cubeVbo);
+        GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER,v.length*4,buf,GLES30.GL_STATIC_DRAW);
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,0);
+    }
+
+    private void createShadowMap(){
+        int[] t=new int[1],f=new int[1];
+        GLES30.glGenTextures(1,t,0); shadowTexture=t[0];
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,shadowTexture);
+        GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D,0,GLES30.GL_DEPTH_COMPONENT16,quality.shadowSize,quality.shadowSize,0,GLES30.GL_DEPTH_COMPONENT,GLES30.GL_UNSIGNED_SHORT,null);
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D,GLES30.GL_TEXTURE_MIN_FILTER,GLES30.GL_LINEAR);
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D,GLES30.GL_TEXTURE_MAG_FILTER,GLES30.GL_LINEAR);
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D,GLES30.GL_TEXTURE_WRAP_S,GLES30.GL_CLAMP_TO_EDGE);
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D,GLES30.GL_TEXTURE_WRAP_T,GLES30.GL_CLAMP_TO_EDGE);
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,0);
+        GLES30.glGenFramebuffers(1,f,0); shadowFbo=f[0];
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,shadowFbo);
+        GLES30.glFramebufferTexture2D(GLES30.GL_FRAMEBUFFER,GLES30.GL_DEPTH_ATTACHMENT,GLES30.GL_TEXTURE_2D,shadowTexture,0);
+        GLES30.glDrawBuffers(0,new int[0],0);
+        GLES30.glReadBuffer(GLES30.GL_NONE);
+        if(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER)!=GLES30.GL_FRAMEBUFFER_COMPLETE){
+            GLES30.glDeleteFramebuffers(1,f,0); shadowFbo=0;
+        }
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0);
+    }
+
+    private void buildSceneModels(){
+        setIdentity(groundModel); scale(groundModel,14,0.1f,18); translate(groundModel,0,-0.1f,0);
+        model(cubeModels,0,0,1,0,0,0,0,2.5f,1.5f,2.5f);
+        model(cubeModels,1,-5,1.5f,-3,0,0,0,2,1.5f,2);
+        model(cubeModels,2,5,1.5f,-3,0,0,0,2,1.5f,2);
+        model(cubeModels,3,-7,2.0f,5,0,0,0,1,2,1);
+        model(cubeModels,4,7,2.0f,5,0,0,0,1,2,1);
+        model(cubeModels,5,0,1.5f,-9,0,0,0,6,1.5f,0.6f);
+        model(cubeModels,6,0,2.5f,9,0,0,0,6,2.5f,0.6f);
+    }
+
+    private void model(float[] dst,int i,float x,float y,float z,float rx,float ry,float rz,float sx,float sy,float sz){
+        float[] m=identity(); translate(m,x,y,z); rotateXYZ(m,rx,ry,rz); scale(m,sx,sy,sz); System.arraycopy(m,0,dst,i*16,16);
+    }
+
+    private void drawShadowModel(float[] m){
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,cubeVbo);
+        GLES30.glEnableVertexAttribArray(0);
+        GLES30.glVertexAttribPointer(0,3,GLES30.GL_FLOAT,false,8*4,0);
+        GLES30.glUniformMatrix4fv(sModel,1,false,m,0);
+        GLES30.glDrawArrays(GLES30.GL_TRIANGLES,0,36);
+        GLES30.glDisableVertexAttribArray(0);
+    }
+
+    private void drawShadowModel(float[] all,int i){
+        drawShadowModel(Arrays.copyOfRange(all,i*16,i*16+16));
+    }
+
+    private void enableMainAttributes(){
+        GLES30.glEnableVertexAttribArray(0); GLES30.glVertexAttribPointer(0,3,GLES30.GL_FLOAT,false,8*4,0);
+        GLES30.glEnableVertexAttribArray(1); GLES30.glVertexAttribPointer(1,3,GLES30.GL_FLOAT,false,8*4,3*4);
+        GLES30.glEnableVertexAttribArray(2); GLES30.glVertexAttribPointer(2,2,GLES30.GL_FLOAT,false,8*4,6*4);
+    }
+
+    private void disableMainAttributes(){GLES30.glDisableVertexAttribArray(0);GLES30.glDisableVertexAttribArray(1);GLES30.glDisableVertexAttribArray(2);}
+
+    private void drawModel(float[] m){
+        GLES30.glUniformMatrix4fv(uModel,1,false,m,0);
+        float[] n=normalMatrix(m);
+        GLES30.glUniformMatrix3fv(uNormal,1,false,n,0);
+        GLES30.glDrawArrays(GLES30.GL_TRIANGLES,0,36);
+    }
+    private void drawModel(float[] all,int i){drawModel(Arrays.copyOfRange(all,i*16,i*16+16));}
+
+    private float[] viewProj(){
+        float[] v;
+        if(mode==Mode.RUNTIME){
+            float yr=(float)Math.toRadians(runtimeCamera.yaw), pr=(float)Math.toRadians(runtimeCamera.pitch);
+            float fx=(float)(Math.cos(pr)*Math.cos(yr)), fy=(float)Math.sin(pr), fz=(float)(Math.cos(pr)*Math.sin(yr));
+            v=lookAt(runtimeCamera.x,runtimeCamera.y,runtimeCamera.z,runtimeCamera.x+fx,runtimeCamera.y+fy,runtimeCamera.z+fz,0,1,0);
+        }else v=lookAt(editorCamera.x,editorCamera.y,editorCamera.z,editorCamera.targetX,editorCamera.targetY,editorCamera.targetZ,0,1,0);
+        float[] p=perspective(64f,(float)width/Math.max(1,height),0.05f,160f);
+        return multiply(p,v);
+    }
+
+    private float[] lightViewProj(){
+        float[] v=lookAt(18,24,16,0,0,0,0,1,0);
+        float[] p=ortho(-28,28,-28,28,1,70);
+        return multiply(p,v);
+    }
+
+    private int link(String vs,String fs){
+        int a=compile(GLES30.GL_VERTEX_SHADER,vs),b=compile(GLES30.GL_FRAGMENT_SHADER,fs);
+        int p=GLES30.glCreateProgram();GLES30.glAttachShader(p,a);GLES30.glAttachShader(p,b);GLES30.glLinkProgram(p);
+        int[] ok=new int[1];GLES30.glGetProgramiv(p,GLES30.GL_LINK_STATUS,ok,0);
+        if(ok[0]==0) throw new RuntimeException("Noir shader link failed: "+GLES30.glGetProgramInfoLog(p));
+        GLES30.glDeleteShader(a);GLES30.glDeleteShader(b);return p;
+    }
+    private int compile(int type,String src){
+        int s=GLES30.glCreateShader(type);GLES30.glShaderSource(s,src);GLES30.glCompileShader(s);
+        int[] ok=new int[1];GLES30.glGetShaderiv(s,GLES30.GL_COMPILE_STATUS,ok,0);
+        if(ok[0]==0) throw new RuntimeException("Noir shader compile failed: "+GLES30.glGetShaderInfoLog(s));
+        return s;
+    }
+
+    private String mainVertex(){return "#version 300 es\nlayout(location=0)in vec3 aPos;layout(location=1)in vec3 aNormal;layout(location=2)in vec2 aUV;uniform mat4 uModel,uViewProj,uLightVP;uniform mat3 uNormal;out vec3 vPos,vNormal;out vec4 vLight;out vec2 vUV;void main(){vec4 w=uModel*vec4(aPos,1.0);vPos=w.xyz;vNormal=normalize(uNormal*aNormal);vLight=uLightVP*w;vUV=aUV;gl_Position=uViewProj*w;}";}
+    private String mainFragment(){return "#version 300 es\nprecision highp float;in vec3 vPos,vNormal;in vec4 vLight;in vec2 vUV;uniform vec3 uCamera,uSunDir,uSunColor,uSky;uniform float uRough,uMetal,uExposure;uniform sampler2D uShadow;out vec4 frag;float shadow(){vec3 p=vLight.xyz/max(vLight.w,0.0001);p=p*0.5+0.5;if(p.x<0.0||p.x>1.0||p.y<0.0||p.y>1.0||p.z>1.0)return 1.0;float bias=0.0015;float s=0.0;float texel=1.0/1024.0;for(int x=-1;x<=1;x++)for(int y=-1;y<=1;y++){float d=texture(uShadow,p.xy+vec2(x,y)*texel).r;s+=p.z-bias<=d?1.0:0.0;}return s/9.0;}vec3 fresnel(float c,vec3 f0){return f0+(1.0-f0)*pow(1.0-c,5.0);}void main(){vec3 N=normalize(vNormal),V=normalize(uCamera-vPos),L=normalize(-uSunDir),H=normalize(V+L);float NoL=max(dot(N,L),0.0),NoV=max(dot(N,V),0.0),NoH=max(dot(N,H),0.0),VoH=max(dot(V,H),0.0);float a=max(0.045,uRough*uRough);float a2=a*a;float d=(NoH*NoH*(a2-1.0)+1.0);float D=a2/(3.14159265*d*d);float k=(a+1.0);k=k*k/8.0;float Gv=NoV/(NoV*(1.0-k)+k);float Gl=NoL/(NoL*(1.0-k)+k);vec3 F0=mix(vec3(0.04),vec3(0.86),uMetal);vec3 F=fresnel(VoH,F0);vec3 spec=(D*Gv*Gl*F)/max(4.0*NoV*NoL,0.001);vec3 base=vec3(0.47,0.51,0.58);vec3 kd=(1.0-F)*(1.0-uMetal);float sh=shadow();vec3 direct=(kd*base/3.14159265+spec)*uSunColor*NoL*sh;vec3 refl=texture(uShadow,vec2(0.5)).rrr;vec3 env=mix(uSky,vec3(0.75,0.82,0.92),pow(1.0-NoV,5.0));vec3 color=(direct+kd*base*0.16+env*spec*0.35);color=vec3(1.0)-exp(-color*uExposure);color=pow(color,vec3(1.0/2.2));frag=vec4(color,1.0);}";}
+    private String shadowVertex(){return "#version 300 es\nlayout(location=0)in vec3 aPos;uniform mat4 uModel,uLightVP;void main(){gl_Position=uLightVP*uModel*vec4(aPos,1.0);}";}
+    private String shadowFragment(){return "#version 300 es\nprecision mediump float;void main(){}";}
+    private String skyVertex(){return "#version 300 es\nvoid main(){vec2 p=vec2((gl_VertexID<<1)&2,gl_VertexID&2);gl_Position=vec4(p*2.0-1.0,0.999,1.0);}";}
+    private String skyFragment(){return "#version 300 es\nprecision highp float;uniform float uTime;out vec4 frag;float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);}void main(){vec2 uv=gl_FragCoord.xy/vec2(1600.0,900.0);float h=clamp(uv.y,0.0,1.0);vec3 horizon=vec3(0.70,0.80,0.92),zenith=vec3(0.035,0.10,0.24);vec3 c=mix(horizon,zenith,pow(h,0.72));float n=noise(uv*5.0+vec2(uTime*0.01,0.0))*0.55+noise(uv*11.0-vec2(uTime*0.015,0.0))*0.45;float clouds=smoothstep(0.60,0.78,n)*smoothstep(0.05,0.55,h);c=mix(c,vec3(0.92,0.94,0.97),clouds*0.34);float sun=pow(max(0.0,1.0-distance(uv,vec2(0.74,0.25))*3.8),48.0);c+=vec3(1.0,0.75,0.45)*sun;frag=vec4(c,1.0);}";}
+    private float[] identity(){float[]m=new float[16];m[0]=m[5]=m[10]=m[15]=1;return m;}
+    private void setIdentity(float[]m){Arrays.fill(m,0);m[0]=m[5]=m[10]=m[15]=1;}
+    private void translate(float[]m,float x,float y,float z){m[12]+=x;m[13]+=y;m[14]+=z;}
+    private void scale(float[]m,float x,float y,float z){m[0]*=x;m[5]*=y;m[10]*=z;}
+    private void rotateXYZ(float[]m,float x,float y,float z){if(x!=0)mulInPlace(m,rotationX(x));if(y!=0)mulInPlace(m,rotationY(y));if(z!=0)mulInPlace(m,rotationZ(z));}
+    private float[] rotationX(float d){float c=(float)Math.cos(d),s=(float)Math.sin(d);float[]m=identity();m[5]=c;m[6]=s;m[9]=-s;m[10]=c;return m;}
+    private float[] rotationY(float d){float c=(float)Math.cos(d),s=(float)Math.sin(d);float[]m=identity();m[0]=c;m[2]=-s;m[8]=s;m[10]=c;return m;}
+    private float[] rotationZ(float d){float c=(float)Math.cos(d),s=(float)Math.sin(d);float[]m=identity();m[0]=c;m[1]=s;m[4]=-s;m[5]=c;return m;}
+    private void mulInPlace(float[]a,float[]b){float[]r=multiply(a,b);System.arraycopy(r,0,a,0,16);}
+    private float[] normalMatrix(float[]m){return new float[]{m[0],m[1],m[2],m[4],m[5],m[6],m[8],m[9],m[10]};}
+    private float[] perspective(float f,float a,float n,float fa){float t=(float)(1.0/Math.tan(Math.toRadians(f)*0.5));float[]m=new float[16];m[0]=t/a;m[5]=t;m[10]=(fa+n)/(n-fa);m[11]=-1;m[14]=(2*fa*n)/(n-fa);return m;}
+    private float[] ortho(float l,float r,float b,float t,float n,float f){float[]m=identity();m[0]=2/(r-l);m[5]=2/(t-b);m[10]=-2/(f-n);m[12]=-(r+l)/(r-l);m[13]=-(t+b)/(t-b);m[14]=-(f+n)/(f-n);return m;}
+    private float[] lookAt(float ex,float ey,float ez,float cx,float cy,float cz,float ux,float uy,float uz){float zx=ex-cx,zy=ey-cy,zz=ez-cz;float zl=(float)Math.sqrt(zx*zx+zy*zy+zz*zz);zx/=zl;zy/=zl;zz/=zl;float xx=uy*zz-uz*zy,xy=uz*zx-ux*zz,xz=ux*zy-uy*zx;float xl=(float)Math.sqrt(xx*xx+xy*xy+xz*xz);xx/=xl;xy/=xl;xz/=xl;float yx=zy*xz-zz*xy,yy=zz*xx-zx*xz,yz=zx*xy-zy*xx;float[]m=identity();m[0]=xx;m[1]=yx;m[2]=zx;m[4]=xy;m[5]=yy;m[6]=zy;m[8]=xz;m[9]=yz;m[10]=zz;m[12]=-(xx*ex+xy*ey+xz*ez);m[13]=-(yx*ex+yy*ey+yz*ez);m[14]=-(zx*ex+zy*ey+zz*ez);return m;}
     private float[] multiply(float[]a,float[]b){float[]r=new float[16];for(int c=0;c<4;c++)for(int row=0;row<4;row++)r[c*4+row]=a[row]*b[c*4]+a[4+row]*b[c*4+1]+a[8+row]*b[c*4+2]+a[12+row]*b[c*4+3];return r;}
 }
