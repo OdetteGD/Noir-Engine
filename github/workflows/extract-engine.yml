@@ -1,0 +1,69 @@
+name: Extract Noir Engine v0.4
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract Noir Engine v0.4
+        shell: bash
+        run: |
+          set -e
+
+          ZIP="uploads/Noir3D-Game-Engine-v0.4.zip"
+          TEMP_DIR="_noir_extract"
+
+          echo "Checking ZIP..."
+          test -f "$ZIP"
+
+          rm -rf "$TEMP_DIR"
+          mkdir -p "$TEMP_DIR"
+
+          echo "Extracting..."
+          unzip -o "$ZIP" -d "$TEMP_DIR"
+
+          echo "Moving engine files to repository root..."
+
+          # Handle ZIPs that contain a single top-level directory.
+          if [ "$(find "$TEMP_DIR" -mindepth 1 -maxdepth 1 | wc -l)" -eq 1 ] && \
+             [ -d "$(find "$TEMP_DIR" -mindepth 1 -maxdepth 1 -type d)" ]; then
+            ROOT="$(find "$TEMP_DIR" -mindepth 1 -maxdepth 1 -type d)"
+          else
+            ROOT="$TEMP_DIR"
+          fi
+
+          cp -a "$ROOT"/. .
+
+          echo "Cleaning temporary files..."
+          rm -rf "$TEMP_DIR"
+          rm -f "$ZIP"
+
+          echo "Extracted project:"
+          find . -maxdepth 3 -type f | sort
+
+      - name: Commit extracted project
+        shell: bash
+        run: |
+          set -e
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "Nothing to commit."
+            exit 0
+          fi
+
+          git commit -m "Extract Noir 3D Game Engine v0.4"
+          git push
