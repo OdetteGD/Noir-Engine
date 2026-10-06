@@ -654,8 +654,14 @@ public final class NoirEditorView extends android.view.View {
             int idx=(int)((y-(t+dp(98)))/dp(40));
             if(idx>=0&&idx<6){
                 String key=new String[]{"sky","clouds","shadows","reflections","fog","pbr"}[idx];
-                state.scene.environment.put(key,state.scene.environment.getOrDefault(key,"on").equals("on")?"off":"on");
-                status="World "+key+" "+state.scene.environment.get(key);
+                String next=state.scene.environment.getOrDefault(key,"on").equals("on")?"off":"on";
+                state.scene.environment.put(key,next);
+                boolean enabled="on".equals(next);
+                if("shadows".equals(key))renderer.quality().shadows=enabled;
+                else if("reflections".equals(key))renderer.quality().reflections=enabled;
+                else if("fog".equals(key))renderer.quality().fog=enabled;
+                else if("clouds".equals(key))renderer.quality().clouds=enabled;
+                status="World "+key+" "+next;
             }
         }else if(y>b-dp(98)&&x>dp(80)&&x<dp(170)){
             renderer.quality().exposure=Math.max(0.2f,renderer.quality().exposure-0.1f);
