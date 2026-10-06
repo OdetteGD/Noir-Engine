@@ -10,6 +10,7 @@ import com.noir.game.engine.animation.AnimationSystem;
 import com.noir.game.engine.editor.*;
 import com.noir.game.engine.render.NoirRenderer;
 import com.noir.game.engine.scene.NoirNode;
+import com.noir.game.engine.scripting.NoirCSharpProjectService;
 import java.io.File;
 import java.util.*;
 
@@ -42,7 +43,7 @@ public final class NoirEditorView extends android.view.View {
     private final ScriptDocument script=new ScriptDocument();
     private final TransformGizmo gizmo=new TransformGizmo();
 
-    private final String[] tabs={"SCENE","ASSETS","INSPECT","ANIM","SCRIPT","SHADER","PHYSICS","WORLD","CTRL","PROFILER","CONSOLE"};
+    private final String[] tabs={"SCENE","ASSETS","INSPECT","ANIM","SCRIPT","SHADER","PHYSICS","WORLD","CTRL","PROFILER","CONSOLE","C#"};
     private int tab;
     private float density;
     private float topBar,tabBar,bottomBar,leftW,rightW;
@@ -197,6 +198,7 @@ public final class NoirEditorView extends android.view.View {
                 case 8:drawController(c,0,t,leftW,b);break;
                 case 9:drawProfiler(c,0,t,leftW,b);break;
                 case 10:drawConsole(c,0,t,leftW,b);break;
+                case 11:drawCSharp(c,0,t,leftW,b);break;
             }
         }
     }
@@ -340,6 +342,27 @@ public final class NoirEditorView extends android.view.View {
         smallButton(c,l+dp(16),b-dp(52),dp(68),"FORMAT",false);
         smallButton(c,l+dp(90),b-dp(52),dp(76),"COMPILE",true);
         text(c,script.diagnostics().isEmpty()?"No diagnostics":script.diagnostics().size()+" diagnostics",l+dp(176),b-dp(32),dp(8),script.diagnostics().isEmpty()?GOOD:BAD);
+    }
+
+    private void drawCSharp(Canvas c,float l,float t,float r,float b){
+        File root=state.projectRoot;
+        text(c,"C# MOBILE SCRIPTING",l+dp(16),t+dp(68),dp(11),TEXT);
+        text(c,"using Noir;  •  net8.0-android  •  C# 12",l+dp(16),t+dp(88),dp(8),ACCENT);
+        boolean ready=root!=null;
+        text(c,ready?"PROJECT READY":"OPEN A PROJECT TO ENABLE C#",l+dp(16),t+dp(112),dp(10),ready?GOOD:WARN);
+        text(c,"Self-contained SDK + .csproj",l+dp(18),t+dp(146),dp(9),MUTED);
+        text(c,"Roslyn host: repository /csharp/Noir.CSharp.Compiler",l+dp(18),t+dp(170),dp(9),MUTED);
+        text(c,"Mobile target: Android API 26+",l+dp(18),t+dp(194),dp(9),MUTED);
+        smallButton(c,l+dp(16),t+dp(220),dp(116),"CREATE C# PROJECT",true);
+        smallButton(c,l+dp(142),t+dp(220),dp(98),"OPEN C# FOLDER",false);
+        smallButton(c,l+dp(246),t+dp(220),dp(84),"CHECK SDK",false);
+        round(c,0xff080d15,l+dp(12),t+dp(270),r-dp(12),b-dp(66),dp(5));
+        text(c,"PlayerController.cs",l+dp(22),t+dp(296),dp(9),TEXT);
+        text(c,"using Noir;",l+dp(22),t+dp(318),dp(9),0xff83a9ff);
+        text(c,"public sealed class PlayerController : Character3D",l+dp(22),t+dp(338),dp(9),TEXT);
+        text(c,"Input.Vector(\"ui_left\",\"ui_right\",\"ui_up\",\"ui_down\")",l+dp(22),t+dp(358),dp(8),TEXT);
+        text(c,"PhysicsUpdate(delta) • MoveAndSlide()",l+dp(22),t+dp(378),dp(8),TEXT);
+        text(c,"Note: Java/ART editor prepares the project; the C# host is a separate .NET compiler/runtime boundary.",l+dp(18),b-dp(82),dp(7),MUTED);
     }
 
     private void drawShader(Canvas c,float l,float t,float r,float b){
@@ -605,6 +628,10 @@ public final class NoirEditorView extends android.view.View {
         }else if(tab==10){
             if(y>b-dp(76)&&x<dp(78))clearConsole();
             else if(y>b-dp(76)&&x<dp(170)){Toast.makeText(getContext(),"Console entries ready to copy",Toast.LENGTH_SHORT).show();}
+        }else if(tab==11){
+            if(y>t+dp(210)&&y<t+dp(270)&&x<dp(138)){createCSharpProject();}
+            else if(y>t+dp(210)&&y<t+dp(270)&&x<dp(250)){openCSharpFolder();}
+            else if(y>t+dp(210)&&y<t+dp(270)){checkCSharpSdk();}
         }
         invalidate();
     }
@@ -806,6 +833,38 @@ public final class NoirEditorView extends android.view.View {
             state.selected.properties.put("component."+components[which],"enabled");
             state.log("Added "+components[which]+" to "+state.selected.name);status="Component added";invalidate();
         }).show();
+    }
+
+    private void createCSharpProject(){
+        if(state.projectRoot==null){Toast.makeText(getContext(),"Open a Noir project first",Toast.LENGTH_SHORT).show();return;}
+        try{
+            NoirCSharpProjectService.Result r=NoirCSharpProjectService.ensure(state.projectRoot,"com.noir.game.scripts");
+            state.log("C# project ready: "+r.project.getAbsolutePath());
+            status="C# project created";
+            Toast.makeText(getContext(),"C# mobile project ready",Toast.LENGTH_SHORT).show();
+        }catch(Exception ex){
+            state.log("C# ERROR: "+ex.getMessage());
+            status="C# project failed";
+            Toast.makeText(getContext(),"C# setup failed: "+ex.getMessage(),Toast.LENGTH_LONG).show();
+        }
+        invalidate();
+    }
+
+    private void openCSharpFolder(){
+        if(state.projectRoot==null){Toast.makeText(getContext(),"Open a Noir project first",Toast.LENGTH_SHORT).show();return;}
+        File folder=new File(state.projectRoot,"scripts/csharp");
+        if(folder.isDirectory()){browserDir=folder;tab=1;status="C# folder opened in Assets";}
+        else{status="Create the C# project first";Toast.makeText(getContext(),"Create C# project first",Toast.LENGTH_SHORT).show();}
+        invalidate();
+    }
+
+    private void checkCSharpSdk(){
+        if(state.projectRoot==null){status="No project";return;}
+        File project=new File(state.projectRoot,"scripts/csharp/Noir.Game.csproj");
+        status=project.isFile()?"C# .csproj detected":"C# project not created";
+        state.log(status);
+        Toast.makeText(getContext(),status,Toast.LENGTH_SHORT).show();
+        invalidate();
     }
 
     private void buildProject(){
