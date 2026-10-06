@@ -66,3 +66,51 @@ Java_com_noir_game_engine_NoirNative_mobilePbrShader(JNIEnv* env,jclass){
         "color=vec3(1.0)-exp(-color*1.15);color=pow(color,vec3(1.0/2.2));frag=vec4(color,1.0);}";
     return env->NewStringUTF(shader);
 }
+
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_noir_game_engine_NoirNative_stepRigidBodyAdvanced(JNIEnv* env,jclass,jfloatArray state,jfloat dt,jfloat gravity,jfloat damping,jfloat floorY){
+    if(!state || env->GetArrayLength(state)<6)return;
+    jfloat* s=env->GetFloatArrayElements(state,nullptr);
+    float h=std::max(0.0f,std::min(dt,0.05f));
+    float d=std::max(0.0f,std::min(damping,50.0f));
+    s[4]+=gravity*h;
+    float damp=std::exp(-d*h);
+    s[3]*=damp;s[4]*=damp;s[5]*=damp;
+    s[0]+=s[3]*h;s[1]+=s[4]*h;s[2]+=s[5]*h;
+    if(s[1]<floorY){s[1]=floorY;s[4]=0.0f;}
+    env->ReleaseFloatArrayElements(state,s,0);
+}
+
+extern "C" JNIEXPORT jfloat JNICALL
+Java_com_noir_game_engine_NoirNative_rayAabbHit(JNIEnv* env,jclass,jfloatArray origin,jfloatArray dir,jfloatArray minv,jfloatArray maxv){
+    if(!origin||!dir||!minv||!maxv||env->GetArrayLength(origin)<3||env->GetArrayLength(dir)<3||env->GetArrayLength(minv)<3||env->GetArrayLength(maxv)<3)return -1.0f;
+    jfloat* o=env->GetFloatArrayElements(origin,nullptr);
+    jfloat* d=env->GetFloatArrayElements(dir,nullptr);
+    jfloat* mn=env->GetFloatArrayElements(minv,nullptr);
+    jfloat* mx=env->GetFloatArrayElements(maxv,nullptr);
+    float tmin=0.0f,tmax=1.0e30f;
+    for(int i=0;i<3;i++){
+        if(std::abs(d[i])<1.0e-7f){
+            if(o[i]<mn[i]||o[i]>mx[i]){tmin=-1.0f;break;}
+        }else{
+            float a=(mn[i]-o[i])/d[i],b=(mx[i]-o[i])/d[i];
+            if(a>b)std::swap(a,b);
+            tmin=std::max(tmin,a);tmax=std::min(tmax,b);
+            if(tmin>tmax){tmin=-1.0f;break;}
+        }
+    }
+    env->ReleaseFloatArrayElements(origin,o,JNI_ABORT);
+    env->ReleaseFloatArrayElements(dir,d,JNI_ABORT);
+    env->ReleaseFloatArrayElements(minv,mn,JNI_ABORT);
+    env->ReleaseFloatArrayElements(maxv,mx,JNI_ABORT);
+    return tmin;
+}
+
+extern "C" JNIEXPORT jfloat JNICALL
+Java_com_noir_game_engine_NoirNative_springDamper(JNIEnv*,jclass,jfloat current,jfloat velocity,jfloat target,jfloat stiffness,jfloat damping,jfloat dt){
+    float h=std::max(0.0f,std::min(dt,0.05f));
+    float k=std::max(0.0f,stiffness),c=std::max(0.0f,damping);
+    float acceleration=(target-current)*k-velocity*c;
+    return current+velocity*h+0.5f*acceleration*h*h;
+}
