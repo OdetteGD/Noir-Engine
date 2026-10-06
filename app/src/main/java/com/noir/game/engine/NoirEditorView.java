@@ -33,6 +33,7 @@ public final class NoirEditorView extends android.view.View {
     private float topBar,tabBar,bottomBar;
     private float leftW,rightW;
     private final RectF hit=new RectF();
+    private long lastAnimationNanos=System.nanoTime();
 
     public NoirEditorView(Context c,EditorState s,NoirRenderer r,NoirSurface ss){
         super(c); state=s; renderer=r; surface=ss; tree=new SceneTreeModel(state.scene.root);
@@ -58,6 +59,17 @@ public final class NoirEditorView extends android.view.View {
         fill(c,0x00000000,0,0,w,h);
         drawTop(c,w);
         drawTabs(c,w);
+        if(timeline.playing){
+            long now=System.nanoTime();
+            float dt=Math.min(0.05f,(now-lastAnimationNanos)/1_000_000_000f);
+            lastAnimationNanos=now;
+            timeline.playhead+=dt;
+            if(timeline.clip!=null && timeline.playhead>timeline.clip.duration){
+                timeline.playhead=timeline.loop?0:timeline.clip.duration;
+                if(!timeline.loop)timeline.playing=false;
+            }
+            postInvalidateDelayed(16);
+        }
         drawBottom(c,w,h);
 
         if(state.playing) return;
@@ -79,8 +91,11 @@ public final class NoirEditorView extends android.view.View {
     private void drawTop(Canvas c,float w){
         fill(c,0xeA080D16,0,0,w,topBar);
         bold(c,"NOIR",dp(18),dp(37),dp(25),Color.WHITE);
-        text(c,"3D ENGINE  /  MOBILE EDITOR",dp(90),dp(35),dp(12),0xff8fa7ff);
-
+        text(c,"3D ENGINE / MOBILE EDITOR",dp(90),dp(35),dp(12),0xff8fa7ff);
+        button(c,dp(280),dp(10),dp(50),dp(40),"SEL",state.tool==EditorState.Tool.SELECT);
+        button(c,dp(335),dp(10),dp(58),dp(40),"MOVE",state.tool==EditorState.Tool.MOVE);
+        button(c,dp(398),dp(10),dp(58),dp(40),"ROT",state.tool==EditorState.Tool.ROTATE);
+        button(c,dp(461),dp(10),dp(58),dp(40),"SCALE",state.tool==EditorState.Tool.SCALE);
         button(c,w-dp(315),dp(10),dp(72),dp(40),state.playing?"STOP":"PLAY",state.playing);
         button(c,w-dp(236),dp(10),dp(72),dp(40),"BUILD",false);
         button(c,w-dp(157),dp(10),dp(64),dp(40),"SAVE",false);
@@ -363,6 +378,10 @@ public final class NoirEditorView extends android.view.View {
         float x=e.getX(),y=e.getY(),w=getWidth(),h=getHeight();
 
         if(y<topBar){
+            if(x>=dp(280)&&x<dp(330)){state.tool=EditorState.Tool.SELECT;invalidate();return true;}
+            if(x>=dp(335)&&x<dp(393)){state.tool=EditorState.Tool.MOVE;invalidate();return true;}
+            if(x>=dp(398)&&x<dp(456)){state.tool=EditorState.Tool.ROTATE;invalidate();return true;}
+            if(x>=dp(461)&&x<dp(519)){state.tool=EditorState.Tool.SCALE;invalidate();return true;}
             if(x>w-dp(315)&&x<w-dp(243)){togglePlay();return true;}
             if(x>w-dp(236)&&x<w-dp(164)){buildProject();return true;}
             if(x>w-dp(157)&&x<w-dp(93)){saveProject();return true;}
