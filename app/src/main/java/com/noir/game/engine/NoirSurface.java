@@ -10,6 +10,9 @@ import javax.microedition.khronos.egl.EGLDisplay;
 
 /** Full-screen GPU viewport with editor orbit and runtime mobile look. */
 public final class NoirSurface extends GLSurfaceView {
+    public interface EditorTapListener { void onEditorTap(float x,float y); }
+    private EditorTapListener editorTapListener;
+    public void setEditorTapListener(EditorTapListener listener){editorTapListener=listener;}
     private final NoirRenderer renderer;
     private float lastX,lastY,startX,startY;
     private boolean dragging;
@@ -79,6 +82,9 @@ public final class NoirSurface extends GLSurfaceView {
                 }
                 return true;
             case MotionEvent.ACTION_UP:
+                if(renderer.mode()==NoirRenderer.Mode.EDITOR && dragging && Math.abs(e.getX()-startX)<12f && Math.abs(e.getY()-startY)<12f && editorTapListener!=null)
+                    editorTapListener.onEditorTap(e.getX(),e.getY());
+                dragging=false;runtimeMoveTouch=false;pinchDistance=0;return true;
             case MotionEvent.ACTION_CANCEL:
                 dragging=false;runtimeMoveTouch=false;pinchDistance=0;return true;
             default:return true;
