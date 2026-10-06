@@ -13,9 +13,9 @@ import javax.microedition.khronos.opengles.GL10;
 public final class NoirRenderer implements GLSurfaceView.Renderer {
     public static final class Camera { public float yaw=-90,pitch=-8,distance=18; public float tx=0,ty=2,tz=0; }
     public static final class Material { public float r=.72f,g=.76f,b=.82f,rough=.48f,metal=.08f,ao=1f; }
-    private int program; private int vbo; private int uMvp,uColor; private float angle; public final Camera camera=new Camera(); public final Material material=new Material();
+    private int program; private int uMvp,uColor; private float angle; public final Camera camera=new Camera(); public final Material material=new Material();
     private int width=1,height=1;
-    @Override public void onSurfaceCreated(GL10 gl,EGLConfig config){GLES30.glClearColor(.025f,.035f,.055f,1);GLES30.glEnable(GLES30.GL_DEPTH_TEST);GLES30.glEnable(GLES30.GL_CULL_FACE);program=program(vertexShader(),fragmentShader());uMvp=GLES30.glGetUniformLocation(program,"uMvp");uColor=GLES30.glGetUniformLocation(program,"uColor");int[] buffers=new int[1];GLES30.glGenBuffers(1,buffers,0);vbo=buffers[0];}
+    @Override public void onSurfaceCreated(GL10 gl,EGLConfig config){GLES30.glClearColor(.025f,.035f,.055f,1);GLES30.glEnable(GLES30.GL_DEPTH_TEST);GLES30.glEnable(GLES30.GL_CULL_FACE);program=program(vertexShader(),fragmentShader());uMvp=GLES30.glGetUniformLocation(program,"uMvp");uColor=GLES30.glGetUniformLocation(program,"uColor");}
     @Override public void onSurfaceChanged(GL10 gl,int w,int h){width=Math.max(1,w);height=Math.max(1,h);GLES30.glViewport(0,0,width,height);}
     @Override public void onDrawFrame(GL10 gl){GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);GLES30.glUseProgram(program);angle+=.18f;drawGrid();drawCube(0,1,0,4,1,4);drawCube(-5,1,-3,2,2,2);drawCube(5,1,-3,2,2,2);}
     private void drawGrid(){for(int i=-10;i<=10;i++){drawCube(i*.9f,-.05f,0,.02f,.02f,18);drawCube(0,-.05f,i*.9f,18,.02f,.02f);}}
