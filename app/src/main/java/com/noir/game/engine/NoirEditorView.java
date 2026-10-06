@@ -347,12 +347,12 @@ public final class NoirEditorView extends android.view.View {
     private void drawCSharp(Canvas c,float l,float t,float r,float b){
         File root=state.projectRoot;
         text(c,"C# MOBILE SCRIPTING",l+dp(16),t+dp(68),dp(11),TEXT);
-        text(c,"using Noir;  •  net8.0-android  •  C# 12",l+dp(16),t+dp(88),dp(8),ACCENT);
+        text(c,"using Noir;  •  net10.0-android  •  C# 14",l+dp(16),t+dp(88),dp(8),ACCENT);
         boolean ready=root!=null;
         text(c,ready?"PROJECT READY":"OPEN A PROJECT TO ENABLE C#",l+dp(16),t+dp(112),dp(10),ready?GOOD:WARN);
-        text(c,"Self-contained SDK + .csproj",l+dp(18),t+dp(146),dp(9),MUTED);
+        text(c,"Self-contained mobile SDK + .csproj",l+dp(18),t+dp(146),dp(9),MUTED);
         text(c,"Roslyn host: repository /csharp/Noir.CSharp.Compiler",l+dp(18),t+dp(170),dp(9),MUTED);
-        text(c,"Mobile target: Android API 26+",l+dp(18),t+dp(194),dp(9),MUTED);
+        text(c,"Mobile target: Android API 26+ • Renderer API: Forward+ Mobile",l+dp(18),t+dp(194),dp(9),MUTED);
         smallButton(c,l+dp(16),t+dp(220),dp(116),"CREATE C# PROJECT",true);
         smallButton(c,l+dp(142),t+dp(220),dp(98),"OPEN C# FOLDER",false);
         smallButton(c,l+dp(246),t+dp(220),dp(84),"CHECK SDK",false);
@@ -397,10 +397,14 @@ public final class NoirEditorView extends android.view.View {
             text(c,names[i],l+dp(18),y+dp(18),dp(9),TEXT);
             smallButton(c,r-dp(92),y,dp(76),on?"ON":"OFF",on);
         }
-        text(c,"Exposure",l+dp(18),b-dp(73),dp(9),MUTED);
-        smallButton(c,l+dp(86),b-dp(86),dp(54),"-",false);
-        text(c,String.format(Locale.US,"%.2f",renderer.quality().exposure),l+dp(150),b-dp(66),dp(11),TEXT);
-        smallButton(c,l+dp(184),b-dp(86),dp(54),"+",true);
+        text(c,"QUALITY",l+dp(18),b-dp(112),dp(9),MUTED);
+        smallButton(c,l+dp(74),b-dp(126),dp(62),"HIGH",false);
+        smallButton(c,l+dp(140),b-dp(126),dp(62),"ULTRA",true);
+        smallButton(c,l+dp(206),b-dp(126),dp(76),"EXTREME",false);
+        text(c,"Exposure",l+dp(18),b-dp(60),dp(9),MUTED);
+        smallButton(c,l+dp(86),b-dp(73),dp(42),"-",false);
+        text(c,String.format(Locale.US,"%.2f",renderer.quality().exposure),l+dp(138),b-dp(52),dp(11),TEXT);
+        smallButton(c,l+dp(174),b-dp(73),dp(42),"+",true);
     }
 
     private void drawController(Canvas c,float l,float t,float r,float b){
@@ -416,7 +420,8 @@ public final class NoirEditorView extends android.view.View {
         float ft=renderer.frameTimeMs();
         String[] rows={
             String.format(Locale.US,"Frame %.2f ms",ft),
-            "GPU Forward / PBR","Shadow map 1024 PCF","MSAA 4x requested",
+            "GPU Forward PBR • Ultra quality","Shadow map "+renderer.quality().shadowSize+" PCF","ACES tone mapping • color grading",
+            "Sun rays • analytic god rays • glow",
             "Scene nodes "+state.scene.flatten().size(),
             "Native "+(NoirNative.isLoaded()?"loaded":"fallback")
         };
@@ -696,6 +701,12 @@ public final class NoirEditorView extends android.view.View {
     }
 
     private void handleWorldTap(float x,float y,float t,float b,float w){
+        if(y>b-dp(150)&&y<b-dp(100)){
+            if(x>dp(68)&&x<dp(140)){renderer.setQualityPreset(NoirRenderer.QualityPreset.HIGH);status="Quality HIGH";}
+            else if(x>=dp(140)&&x<dp(206)){renderer.setQualityPreset(NoirRenderer.QualityPreset.ULTRA);status="Quality ULTRA";}
+            else if(x>=dp(206)&&x<dp(290)){renderer.setQualityPreset(NoirRenderer.QualityPreset.EXTREME);status="Quality EXTREME";}
+            return;
+        }
         if(y>t+dp(86)&&y<t+dp(350)&&x>w-dp(100)){
             int idx=(int)((y-(t+dp(98)))/dp(40));
             if(idx>=0&&idx<6){
@@ -709,9 +720,9 @@ public final class NoirEditorView extends android.view.View {
                 else if("clouds".equals(key))renderer.quality().clouds=enabled;
                 status="World "+key+" "+next;
             }
-        }else if(y>b-dp(98)&&x>dp(80)&&x<dp(170)){
+        }else if(y>b-dp(88)&&x>dp(80)&&x<dp(145)){
             renderer.quality().exposure=Math.max(0.2f,renderer.quality().exposure-0.1f);
-        }else if(y>b-dp(98)&&x>dp(180)){
+        }else if(y>b-dp(88)&&x>dp(165)&&x<dp(225)){
             renderer.quality().exposure=Math.min(3.0f,renderer.quality().exposure+0.1f);
         }
     }
