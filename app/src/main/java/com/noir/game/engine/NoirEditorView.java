@@ -105,6 +105,24 @@ public final class NoirEditorView extends android.view.View {
         drawStatusBar(c,w,h);
     }
 
+    private void drawStatusBar(Canvas c,float w,float h){
+        float y=h-bottomBar;
+        fill(c,0xff0b111b,0,y,w,h);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(dp(1));
+        p.setColor(BORDER);
+        c.drawLine(0,y,w,y,p);
+        p.setStyle(Paint.Style.FILL);
+        text(c,"NOIR EDITOR",dp(14),y+dp(19),dp(8),ACCENT);
+        text(c,status,dp(96),y+dp(19),dp(8),TEXT);
+        NoirNode n=state.selected;
+        String sel=n==null?"No selection":n.name+" • "+n.kind.name();
+        text(c,sel,dp(250),y+dp(19),dp(8),MUTED);
+        String nativeState=NoirNative.isLoaded()?"C++ NATIVE":"JAVA FALLBACK";
+        text(c,nativeState,w-dp(125),y+dp(19),dp(8),NoirNative.isLoaded()?GOOD:WARN);
+        text(c,String.format(Locale.US,"FPS %.0f",renderer.getFps()),w-dp(55),y+dp(19),dp(8),TEXT);
+    }
+
     private void drawToolbar(Canvas c,float w){
         fill(c,BG,0,0,w,topBar);
         bold(c,"NOIR",dp(18),dp(36),dp(24),Color.WHITE);
@@ -512,7 +530,7 @@ public final class NoirEditorView extends android.view.View {
                 return true;
             }
             if(viewportTouch&&!viewportMoved){
-                if(held>600){showContextMenu(x,y);return true;}
+                if(held>600){showNoirContextMenu(x,y);return true;}
                 selectAt(x,y);
             }
             invalidate();return true;
@@ -701,7 +719,7 @@ public final class NoirEditorView extends android.view.View {
         else status="No scene node under pointer";
     }
 
-    private void showContextMenu(float x,float y){
+    private void showNoirContextMenu(float x,float y){
         String[] items={"Select node","Add child","Duplicate","Delete","Focus camera"};
         new AlertDialog.Builder(getContext()).setTitle("Viewport")
             .setItems(items,(d,which)->{
