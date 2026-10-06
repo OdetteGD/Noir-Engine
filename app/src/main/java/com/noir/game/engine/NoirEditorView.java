@@ -488,6 +488,7 @@ public final class NoirEditorView extends android.view.View {
                 float dx=x-lastX,dy=y-lastY;
                 if(gizmo.dragging()){
                     if(gizmo.update(renderer,state.selected,x,y)){
+                        if(state.snapping&&state.tool==EditorState.Tool.MOVE)snapNode(state.selected,state.snapStep);
                         state.log("Gizmo "+gizmo.status()+" -> "+state.selected.transformText());
                         status="Editing "+gizmo.status();
                     }
@@ -678,6 +679,13 @@ public final class NoirEditorView extends android.view.View {
         if(k.contains("reflection"))return renderer.quality().reflections;
         if(k.contains("fog"))return renderer.quality().fog;
         return true;
+    }
+
+    private void snapNode(NoirNode n,float step){
+        if(step<=0f)return;
+        n.px=Math.round(n.px/step)*step;
+        n.py=Math.round(n.py/step)*step;
+        n.pz=Math.round(n.pz/step)*step;
     }
 
     private void selectAt(float x,float y){
