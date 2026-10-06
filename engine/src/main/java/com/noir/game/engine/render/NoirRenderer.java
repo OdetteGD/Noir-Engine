@@ -59,7 +59,7 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
     private int mainProgram, skyProgram, shadowProgram;
     private int cubeVbo, groundVbo;
     private int shadowFbo, shadowTexture;
-    private int uModel,uViewProj,uNormal,uCamera,uSunDir,uSunColor,uSky,uBaseColor,uRough,uMetal,uShadow,uLightVP,uExposure;
+    private int uModel,uViewProj,uNormal,uCamera,uSunDir,uSunColor,uSky,uBaseColor,uRough,uMetal,uShadow,uLightVP,uExposure,uReflections,uFog;
     private int sModel,sLightVP;
     private int skyTime, skyForward, skyRight, skyUp, skyAspect, skyClouds;
     private long lastNanos;
@@ -96,6 +96,8 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
         uShadow=GLES30.glGetUniformLocation(mainProgram,"uShadow");
         uLightVP=GLES30.glGetUniformLocation(mainProgram,"uLightVP");
         uExposure=GLES30.glGetUniformLocation(mainProgram,"uExposure");
+        uReflections=GLES30.glGetUniformLocation(mainProgram,"uReflections");
+        uFog=GLES30.glGetUniformLocation(mainProgram,"uFog");
         sModel=GLES30.glGetUniformLocation(shadowProgram,"uModel");
         sLightVP=GLES30.glGetUniformLocation(shadowProgram,"uLightVP");
         skyTime=GLES30.glGetUniformLocation(skyProgram,"uTime");
@@ -253,10 +255,8 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
         GLES30.glUniform3f(uSunColor,1.0f,0.93f,0.82f);
         GLES30.glUniform3f(uSky,0.22f,0.38f,0.62f);
         GLES30.glUniform1f(uExposure,quality.exposure);
-        int uReflectionsLoc=GLES30.glGetUniformLocation(mainProgram,"uReflections");
-        int uFogLoc=GLES30.glGetUniformLocation(mainProgram,"uFog");
-        GLES30.glUniform1f(uReflectionsLoc,quality.reflections?1f:0f);
-        GLES30.glUniform1f(uFogLoc,quality.fog?0.18f:0f);
+        GLES30.glUniform1f(uReflections,quality.reflections?1f:0f);
+        GLES30.glUniform1f(uFog,quality.fog?0.18f:0f);
         GLES30.glUniform1i(uShadow,0);
         GLES30.glUniform3f(uBaseColor,0.28f,0.31f,0.34f);
 
