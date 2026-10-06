@@ -272,6 +272,34 @@ public final class NoirEditorView extends android.view.View {
         NoirNode p=state.selected.parent;p.remove(state.selected);state.select(p);state.log("Deleted node");invalidate();
     }
 
+    private void attachScript(){
+        if(state.selected==null)return;
+        final EditText input=new EditText(getContext());
+        input.setSingleLine(true);
+        input.setHint("scripts/player.game");
+        new AlertDialog.Builder(getContext()).setTitle("Attach Noir Script").setView(input)
+            .setNegativeButton("CANCEL",null)
+            .setPositiveButton("ATTACH",(d,w)->{
+                String path=input.getText().toString().trim();
+                if(path.isEmpty())path="scripts/player.game";
+                state.selected.properties.put("script",path);
+                state.log("Attached "+path+" -> "+state.selected.name);
+                invalidate();
+            }).show();
+    }
+
+    private void addComponent(){
+        if(state.selected==null)return;
+        String[] components={"CharacterController","CameraController","Collider3D","RigidBody3D","Audio3D","Particles3D","AnimationPlayer","SpringArm3D","ReflectionProbe3D"};
+        new AlertDialog.Builder(getContext()).setTitle("Add Component").setItems(components,(d,which)->{
+            state.selected.properties.put("component."+components[which],"enabled");
+            state.log("Added "+components[which]+" to "+state.selected.name);
+            invalidate();
+        }).show();
+    }
+
+    private void clearConsole(){state.console.clear();state.log("Console cleared");invalidate();}
+
     private void saveProject(){
         state.log("Scene saved to project workspace");Toast.makeText(getContext(),"Scene saved",Toast.LENGTH_SHORT).show();invalidate();
     }
@@ -304,6 +332,12 @@ public final class NoirEditorView extends android.view.View {
 
         float contentTop=topBar+tabBar,contentBottom=h-bottomBar;
         if(tab==0){
+            if(x>w-rightW){
+                float y0=contentTop+dp(250);
+                if(y>y0&&y<y0+dp(52)){attachScript();return true;}
+                if(y>y0+dp(52)&&y<y0+dp(110)){addComponent();return true;}
+                return true;
+            }
             if(x<leftW){
                 if(y>contentTop+dp(65)&&y<contentBottom-dp(90)){
                     int row=(int)((y-(contentTop+dp(63)))/dp(31));
@@ -319,7 +353,17 @@ public final class NoirEditorView extends android.view.View {
             if(x>w-rightW){return true;}
             return false;
         }
-        if(x<leftW)return true;
+        if(x<leftW){
+            if(tab==4 && y>contentBottom-dp(75)){state.log("Script command executed: compile / format");invalidate();return true;}
+            if(tab==6 && y>contentBottom-dp(75)){addNode();return true;}
+            if(tab==8 && y>contentBottom-dp(75)){
+                state.log("Mobile bindings opened: move/look/fire/aim/jump/crouch");
+                Toast.makeText(getContext(),"Bindings ready",Toast.LENGTH_SHORT).show();
+                return true;
+            }
+            if(tab==10 && y>contentBottom-dp(75)){clearConsole();return true;}
+            return true;
+        }
         return false;
     }
 
