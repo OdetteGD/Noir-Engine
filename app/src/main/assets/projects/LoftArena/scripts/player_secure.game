@@ -1,0 +1,16 @@
+# This file is plain source for editor demonstration. The build tool can encrypt it into the Noir binary .game envelope.
+entity Player {
+    type: Character3D
+    property speed = 5.0
+    property jump = 4.5
+    input move_x
+    input move_y
+    input jump
+    physics(delta) {
+        movement = vector(move_x, 0, move_y)
+        velocity.x = movement.x * speed
+        velocity.z = movement.z * speed
+        if jump { jump() }
+        move_and_slide()
+    }
+}

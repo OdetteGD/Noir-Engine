@@ -1,0 +1,12 @@
+project LoftArena {
+    engine = Noir3D
+    package = com.noir.game.engine
+    renderer = mobile_pbr
+    main_scene = scenes/LoftArena.game
+    display = landscape
+    msaa = 4
+    hdr = true
+    shadows = cascaded
+    physics = noir
+    scripting = game
+}

@@ -1,0 +1,37 @@
+entity PlayerController {
+    type: Character3D
+    property speed = 5.0
+    property sprint_speed = 7.5
+    property jump = 4.5
+    property gravity = -9.81
+
+    input move_x
+    input move_y
+    input look_x
+    input look_y
+    input jump_pressed
+    input sprint_pressed
+
+    start {
+        camera = child("Camera3D")
+        weapon = child("Weapon")
+    }
+
+    physics(delta) {
+        movement = vector(move_x, 0, move_y)
+        movement = normalize(movement)
+        current_speed = sprint_pressed ? sprint_speed : speed
+        velocity.x = movement.x * current_speed
+        velocity.z = movement.z * current_speed
+        if jump_pressed && is_on_floor() {
+            velocity.y = jump
+        }
+        velocity.y += gravity * delta
+        move_and_slide()
+    }
+
+    update(delta) {
+        camera.rotate_x(-look_y * delta)
+        rotate_y(-look_x * delta)
+    }
+}

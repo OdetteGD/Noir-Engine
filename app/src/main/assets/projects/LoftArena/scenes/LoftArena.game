@@ -1,0 +1,40 @@
+scene LoftArena {
+    environment = procedural_pbr
+    sky = studio_blue
+    exposure = 1.0
+    fog_density = 0.012
+
+    node WorldEnvironment {
+        type = WORLD_ENVIRONMENT
+    }
+    node MainLight {
+        type = LIGHT3D
+        position = (0, 8, 2)
+        color = (1.0, 0.95, 0.85)
+        intensity = 2.8
+        shadows = true
+    }
+    node Floor {
+        type = MESH3D
+        position = (0, 0, 0)
+        mesh = models/LoftArena.glb
+        material = materials/loft_pbr.game
+    }
+    node Player {
+        type = CHARACTER3D
+        position = (0, 1.7, 8)
+        script = scripts/player.game
+        node Camera3D {
+            type = CAMERA3D
+            fov = 70
+        }
+        node Weapon {
+            type = MESH3D
+            mesh = models/weapon.glb
+        }
+    }
+    node ReflectionProbe {
+        type = NODE3D
+        size = (12, 5, 12)
+    }
+}

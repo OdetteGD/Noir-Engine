@@ -1,0 +1,15 @@
+animation PlayerIdle {
+    duration = 4.0
+    fps = 30
+    loop = true
+    track Player/position {
+        key 0.0 = (0, 1.70, 0)
+        key 2.0 = (0, 1.72, 0)
+        key 4.0 = (0, 1.70, 0)
+    }
+    track Camera3D/rotation {
+        key 0.0 = (0, 0, 0)
+        key 2.0 = (0.3, 0, 0)
+        key 4.0 = (0, 0, 0)
+    }
+}

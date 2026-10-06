@@ -1,0 +1,7 @@
+plugins { id 'com.android.library' }
+
+android {
+    namespace 'com.noir.game.engine.runtime'
+    compileSdk 35
+    defaultConfig { minSdk 26; targetSdk 35 }
+}
