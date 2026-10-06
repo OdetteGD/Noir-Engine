@@ -333,7 +333,7 @@ public final class NoirEditorView extends android.view.View {
         float contentTop=topBar+tabBar,contentBottom=h-bottomBar;
         if(tab==0){
             if(x>w-rightW){
-                float y0=contentTop+dp(250);
+                float y0=contentTop+dp(315);
                 if(y>y0&&y<y0+dp(52)){attachScript();return true;}
                 if(y>y0+dp(52)&&y<y0+dp(110)){addComponent();return true;}
                 return true;
