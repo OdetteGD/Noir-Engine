@@ -24,7 +24,7 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
     public enum Mode { EDITOR, RUNTIME }
 
     public static final class Camera {
-        public float yaw = -90f, pitch = -12f, distance = 18f;
+        public float yaw = -90f, pitch = 12f, distance = 18f;
         public float targetX = 0f, targetY = 1.4f, targetZ = 0f;
         public float x, y, z;
         public void updateOrbit() {
@@ -159,7 +159,7 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
 
     public void resetEditorCamera(){
         editorCamera.yaw=-90f;
-        editorCamera.pitch=-12f;
+        editorCamera.pitch=12f;
         editorCamera.distance=18f;
         editorCamera.targetX=0f;editorCamera.targetY=1.4f;editorCamera.targetZ=0f;
         editorCamera.updateOrbit();
