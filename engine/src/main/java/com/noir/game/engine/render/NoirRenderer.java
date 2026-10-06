@@ -70,7 +70,7 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
     private int mainProgram, skyProgram, shadowProgram;
     private int cubeVbo, groundVbo;
     private int shadowFbo, shadowTexture;
-    private int uModel,uViewProj,uNormal,uCamera,uSunDir,uSunColor,uSky,uBaseColor,uRough,uMetal,uShadow,uLightVP,uExposure,uReflections,uFog,uTone,uContrast,uSaturation,uGodRays;
+    private int uModel,uViewProj,uNormal,uCamera,uSunDir,uSunColor,uSky,uBaseColor,uRough,uMetal,uShadow,uLightVP,uExposure,uReflections,uFog,uTone,uContrast,uSaturation,uGodRays,uBloom,uPcfRadius;
     private int sModel,sLightVP;
     private int skyTime, skyForward, skyRight, skyUp, skyAspect, skyClouds, skySunRays, skyGodRays;
     private long lastNanos;
@@ -113,6 +113,8 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
         uContrast=GLES30.glGetUniformLocation(mainProgram,"uContrast");
         uSaturation=GLES30.glGetUniformLocation(mainProgram,"uSaturation");
         uGodRays=GLES30.glGetUniformLocation(mainProgram,"uGodRays");
+        uBloom=GLES30.glGetUniformLocation(mainProgram,"uBloom");
+        uPcfRadius=GLES30.glGetUniformLocation(mainProgram,"uPcfRadius");
         sModel=GLES30.glGetUniformLocation(shadowProgram,"uModel");
         sLightVP=GLES30.glGetUniformLocation(shadowProgram,"uLightVP");
         skyTime=GLES30.glGetUniformLocation(skyProgram,"uTime");
@@ -300,6 +302,8 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
         GLES30.glUniform1f(uContrast,quality.colorGrading?quality.contrast:1f);
         GLES30.glUniform1f(uSaturation,quality.colorGrading?quality.saturation:1f);
         GLES30.glUniform1f(uGodRays,quality.godRays?quality.godRayStrength:0f);
+        GLES30.glUniform1f(uBloom,quality.bloom?1f:0f);
+        GLES30.glUniform1f(uPcfRadius,quality.shadowPcfRadius);
         GLES30.glUniform1i(uShadow,0);
         GLES30.glUniform3f(uBaseColor,0.28f,0.31f,0.34f);
 
@@ -488,7 +492,7 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
     }
 
     private String mainVertex(){return "#version 300 es\nlayout(location=0)in vec3 aPos;layout(location=1)in vec3 aNormal;layout(location=2)in vec2 aUV;uniform mat4 uModel,uViewProj,uLightVP;uniform mat3 uNormal;out vec3 vPos,vNormal;out vec4 vLight;out vec2 vUV;void main(){vec4 w=uModel*vec4(aPos,1.0);vPos=w.xyz;vNormal=normalize(uNormal*aNormal);vLight=uLightVP*w;vUV=aUV;gl_Position=uViewProj*w;}";}
-    private String mainFragment(){return "#version 300 es\\nprecision highp float;in vec3 vPos,vNormal;in vec4 vLight;in vec2 vUV;uniform vec3 uCamera,uSunDir,uSunColor,uSky,uBaseColor;uniform float uRough,uMetal,uExposure,uReflections,uFog,uTone,uContrast,uSaturation,uGodRays;uniform sampler2D uShadow;out vec4 frag;float shadow(){vec3 p=vLight.xyz/max(vLight.w,0.0001);p=p*0.5+0.5;if(p.x<0.0||p.x>1.0||p.y<0.0||p.y>1.0||p.z>1.0)return 1.0;float bias=0.0015;float s=0.0;float texel=1.0/2048.0;for(int x=-2;x<=2;x++)for(int y=-2;y<=2;y++){float d=texture(uShadow,p.xy+vec2(x,y)*texel).r;s+=p.z-bias<=d?1.0:0.0;}return s/25.0;}vec3 fresnel(float c,vec3 f0){return f0+(1.0-f0)*pow(1.0-c,5.0);}vec3 aces(vec3 x){return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14),0.0,1.0);}void main(){vec3 N=normalize(vNormal),V=normalize(uCamera-vPos),L=normalize(-uSunDir),H=normalize(V+L);float NoL=max(dot(N,L),0.0),NoV=max(dot(N,V),0.0),NoH=max(dot(N,H),0.0),VoH=max(dot(V,H),0.0);float a=max(0.045,uRough*uRough);float a2=a*a;float d=(NoH*NoH*(a2-1.0)+1.0);float D=a2/(3.14159265*d*d);float k=(a+1.0);k=k*k/8.0;float Gv=NoV/(NoV*(1.0-k)+k);float Gl=NoL/(NoL*(1.0-k)+k);vec3 F0=mix(vec3(0.04),vec3(0.86),uMetal);vec3 F=fresnel(VoH,F0);vec3 spec=(D*Gv*Gl*F)/max(4.0*NoV*NoL,0.001);vec3 base=max(uBaseColor,vec3(0.001));vec3 kd=(1.0-F)*(1.0-uMetal);float sh=shadow();vec3 direct=(kd*base/3.14159265+spec)*uSunColor*NoL*sh;vec3 env=mix(uSky,vec3(0.75,0.82,0.92),pow(1.0-NoV,5.0));vec3 color=(direct+kd*base*0.16+env*spec*0.35*uReflections);float fogAmount=uFog*clamp(length(uCamera-vPos)/70.0,0.0,1.0);color=mix(color,uSky,fogAmount);color+=uSunColor*pow(max(dot(V,L),0.0),32.0)*uGodRays*0.015;color*=uExposure;if(uTone>0.5)color=aces(max(color,vec3(0.0)));else color=vec3(1.0)-exp(-color);float lum=dot(color,vec3(0.2126,0.7152,0.0722));color=mix(vec3(lum),color,uSaturation);color=(color-0.5)*uContrast+0.5;color=pow(clamp(color,0.0,1.0),vec3(1.0/2.2));frag=vec4(color,1.0);}";}
+    private String mainFragment(){return "#version 300 es\\nprecision highp float;in vec3 vPos,vNormal;in vec4 vLight;in vec2 vUV;uniform vec3 uCamera,uSunDir,uSunColor,uSky,uBaseColor;uniform float uRough,uMetal,uExposure,uReflections,uFog,uTone,uContrast,uSaturation,uGodRays,uBloom,uPcfRadius;uniform sampler2D uShadow;out vec4 frag;float shadow(){vec3 p=vLight.xyz/max(vLight.w,0.0001);p=p*0.5+0.5;if(p.x<0.0||p.x>1.0||p.y<0.0||p.y>1.0||p.z>1.0)return 1.0;float bias=0.0015;float s=0.0;float texel=1.0/2048.0;for(int x=-2;x<=2;x++)for(int y=-2;y<=2;y++){if(float(abs(x))>uPcfRadius||float(abs(y))>uPcfRadius)continue;float d=texture(uShadow,p.xy+vec2(x,y)*texel).r;s+=p.z-bias<=d?1.0:0.0;}return s/(uPcfRadius>1.5?25.0:9.0);}vec3 fresnel(float c,vec3 f0){return f0+(1.0-f0)*pow(1.0-c,5.0);}vec3 aces(vec3 x){return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14),0.0,1.0);}void main(){vec3 N=normalize(vNormal),V=normalize(uCamera-vPos),L=normalize(-uSunDir),H=normalize(V+L);float NoL=max(dot(N,L),0.0),NoV=max(dot(N,V),0.0),NoH=max(dot(N,H),0.0),VoH=max(dot(V,H),0.0);float a=max(0.045,uRough*uRough);float a2=a*a;float d=(NoH*NoH*(a2-1.0)+1.0);float D=a2/(3.14159265*d*d);float k=(a+1.0);k=k*k/8.0;float Gv=NoV/(NoV*(1.0-k)+k);float Gl=NoL/(NoL*(1.0-k)+k);vec3 F0=mix(vec3(0.04),vec3(0.86),uMetal);vec3 F=fresnel(VoH,F0);vec3 spec=(D*Gv*Gl*F)/max(4.0*NoV*NoL,0.001);vec3 base=max(uBaseColor,vec3(0.001));vec3 kd=(1.0-F)*(1.0-uMetal);float sh=shadow();vec3 direct=(kd*base/3.14159265+spec)*uSunColor*NoL*sh;vec3 env=mix(uSky,vec3(0.75,0.82,0.92),pow(1.0-NoV,5.0));vec3 color=(direct+kd*base*0.16+env*spec*0.35*uReflections);float fogAmount=uFog*clamp(length(uCamera-vPos)/70.0,0.0,1.0);color=mix(color,uSky,fogAmount);color+=uSunColor*pow(max(dot(V,L),0.0),32.0)*uGodRays*0.015;float hot=clamp((dot(spec,vec3(0.2126,0.7152,0.0722))-0.35)*2.4,0.0,1.0);color+=uSunColor*hot*hot*uBloom*0.055;color*=uExposure;if(uTone>0.5)color=aces(max(color,vec3(0.0)));else color=vec3(1.0)-exp(-color);float lum=dot(color,vec3(0.2126,0.7152,0.0722));color=mix(vec3(lum),color,uSaturation);color=(color-0.5)*uContrast+0.5;color=pow(clamp(color,0.0,1.0),vec3(1.0/2.2));frag=vec4(color,1.0);}";}
     private String shadowVertex(){return "#version 300 es\nlayout(location=0)in vec3 aPos;uniform mat4 uModel,uLightVP;void main(){gl_Position=uLightVP*uModel*vec4(aPos,1.0);}";}
     private String shadowFragment(){return "#version 300 es\nprecision mediump float;void main(){}";}
     private String skyVertex(){return "#version 300 es\nout vec2 vSkyUV;void main(){vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));vSkyUV=p;gl_Position=vec4(p*2.0-1.0,0.999,1.0);}";}
