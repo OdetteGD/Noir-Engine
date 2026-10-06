@@ -739,7 +739,7 @@ public final class NoirEditorView extends android.view.View {
         new AlertDialog.Builder(getContext()).setTitle("Edit "+title).setMessage("Enter three values separated by spaces.")
             .setView(input).setNegativeButton("CANCEL",null)
             .setPositiveButton("APPLY",(d,w)->{
-                String[] a=input.getText().toString().trim().replace(","," ").split("\\\\s+");
+                String[] a=input.getText().toString().trim().replace(","," ").split("\\s+");
                 if(a.length==3)try{
                     float x=Float.parseFloat(a[0]),y=Float.parseFloat(a[1]),z=Float.parseFloat(a[2]);
                     if(mode==0){n.px=x;n.py=y;n.pz=z;}else if(mode==1){n.rx=x;n.ry=y;n.rz=z;}else{n.sx=x;n.sy=y;n.sz=z;}
