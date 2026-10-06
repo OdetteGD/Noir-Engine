@@ -1,29 +1,59 @@
-# Noir 3D Game Engine v0.4
+# Noir 3D Game Engine
 
-A native Android-first 3D game engine and mobile editor with a proprietary `.game` scene/scripting format.
+Noir is a foreground Android 3D editor/runtime with a mobile project manager and native runtime.
 
-**Application ID:** `com.noir.game.engine`
+## App
 
-## v0.3 editor
-The project now contains actual engine/editor subsystems rather than placeholder panels: scene graph, asset database, inspector model, animation system, script compiler/diagnostics, physics preview backend, OpenGL ES 3 viewport renderer, mobile editor UI, shader material surface, console and profiler surface.
+The launcher opens **Project Manager**, not a background service.
 
-## Build
-Use Android Studio or a GitHub Actions runner with Android SDK 35 and JDK 17. GitHub workflows use Gradle 8.10.2. The repository intentionally does not contain a fake APK or a fake Gradle wrapper binary.
+Features:
+- Create Noir projects
+- Open/import Noir project packages
+- Open projects in the 3D editor
+- Package/export projects
+- Project-owned assets directory
+- Native libnoir3d.so runtime
+- CMake/NDK native build
+- Release signing through local properties or GitHub Secrets
+- Android Storage Access Framework for user-selected files
 
-## GitHub Actions
-- `android.yml`: build debug APK on push/PR.
-- `release.yml`: build release APK when a version tag is pushed.
+## Project package layout
 
-## Important engineering note
-This is a real foundation, not a claim that every AAA subsystem is already complete. Unsupported asset formats should report diagnostics instead of silently pretending to import them. Future rendering/physics/animation backends plug into the existing contracts.
+project/
+  project.game
+  scenes/
+  scripts/
+  assets/
+  models/
+  textures/
+  materials/
+  animations/
+  shaders/
+  audio/
+runtime/
+  noir-package.json
+  lib/
+    <ABI>/
+      libnoir3d.so
 
+The native library is built from app/src/main/cpp.
 
-## v0.4 mobile-next-gen additions
-- Expanded Node3D registry including Character3D, Player3D, Vehicle3D, Terrain3D, Water3D, Foliage3D, Navigation, reflection/light probes, decals, fog, post-processing, LOD and occlusion.
-- Mobile controller editor models with FPS/third-person/vehicle action layouts, safe-area support, touch hit testing, sensitivity and deadzones.
-- Animation Maker model with clips, tracks, keyframes, markers, auto-key, looping and onion-skin configuration.
-- Material/Shader Lab graph model.
-- Terrain streaming/LOD model, particle authoring model and navigation world model.
-- Versioned Noir `.game` encryption container using PBKDF2-HMAC-SHA256 + AES-256-GCM. This is a custom Noir file format built from standard cryptography, not Base64 and not an invented cipher.
-- `.game` bytecode container with source hashing.
-- Public API documentation for all registered node families.
+## APK signing
+
+Do not commit private signing keys.
+
+For GitHub Actions configure:
+- NOIR_KEYSTORE_B64
+- NOIR_STORE_PASSWORD
+- NOIR_KEY_ALIAS
+- NOIR_KEY_PASSWORD
+
+The release workflow builds API 35 with JDK 17, Gradle 8.10.2 and NDK 28.1.13356709.
+
+If no release keystore is configured, the Gradle release variant falls back to the Android debug key for development/testing only. It is not a production distribution identity.
+
+## Project export vs APK build
+
+The mobile editor can create a complete Noir project package containing project files/assets and the libnoir3d.so ABI available in the running engine. Building a final project APK still requires an Android build environment/Gradle toolchain; the package is the handoff format for that build step.
+
+See docs/SIGNING_AND_EXPORT.md.
