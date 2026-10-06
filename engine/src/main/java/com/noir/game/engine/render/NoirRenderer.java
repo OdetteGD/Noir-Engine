@@ -61,7 +61,7 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
     private int shadowFbo, shadowTexture;
     private int uModel,uViewProj,uNormal,uCamera,uSunDir,uSunColor,uSky,uBaseColor,uRough,uMetal,uShadow,uLightVP,uExposure;
     private int sModel,sLightVP;
-    private int skyTime, skyForward, skyRight, skyUp, skyAspect;
+    private int skyTime, skyForward, skyRight, skyUp, skyAspect, skyClouds;
     private long lastNanos;
     private float frameTimeMs;
 
@@ -103,6 +103,7 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
         skyRight=GLES30.glGetUniformLocation(skyProgram,"uRight");
         skyUp=GLES30.glGetUniformLocation(skyProgram,"uUp");
         skyAspect=GLES30.glGetUniformLocation(skyProgram,"uAspect");
+        skyClouds=GLES30.glGetUniformLocation(skyProgram,"uClouds");
 
         createMeshes();
         createShadowMap();
@@ -252,6 +253,10 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
         GLES30.glUniform3f(uSunColor,1.0f,0.93f,0.82f);
         GLES30.glUniform3f(uSky,0.22f,0.38f,0.62f);
         GLES30.glUniform1f(uExposure,quality.exposure);
+        int uReflectionsLoc=GLES30.glGetUniformLocation(mainProgram,"uReflections");
+        int uFogLoc=GLES30.glGetUniformLocation(mainProgram,"uFog");
+        GLES30.glUniform1f(uReflectionsLoc,quality.reflections?1f:0f);
+        GLES30.glUniform1f(uFogLoc,quality.fog?0.18f:0f);
         GLES30.glUniform1i(uShadow,0);
         GLES30.glUniform3f(uBaseColor,0.28f,0.31f,0.34f);
 
@@ -302,6 +307,7 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
         GLES30.glUniform3f(skyRight,right[0],right[1],right[2]);
         GLES30.glUniform3f(skyUp,up[0],up[1],up[2]);
         GLES30.glUniform1f(skyAspect,(float)width/Math.max(1,height));
+        GLES30.glUniform1f(skyClouds,quality.clouds?1f:0f);
         GLES30.glDrawArrays(GLES30.GL_TRIANGLES,0,3);
         GLES30.glEnable(GLES30.GL_CULL_FACE);
         GLES30.glDepthMask(true);
@@ -430,11 +436,11 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
     }
 
     private String mainVertex(){return "#version 300 es\nlayout(location=0)in vec3 aPos;layout(location=1)in vec3 aNormal;layout(location=2)in vec2 aUV;uniform mat4 uModel,uViewProj,uLightVP;uniform mat3 uNormal;out vec3 vPos,vNormal;out vec4 vLight;out vec2 vUV;void main(){vec4 w=uModel*vec4(aPos,1.0);vPos=w.xyz;vNormal=normalize(uNormal*aNormal);vLight=uLightVP*w;vUV=aUV;gl_Position=uViewProj*w;}";}
-    private String mainFragment(){return "#version 300 es\nprecision highp float;in vec3 vPos,vNormal;in vec4 vLight;in vec2 vUV;uniform vec3 uCamera,uSunDir,uSunColor,uSky,uBaseColor;uniform float uRough,uMetal,uExposure;uniform sampler2D uShadow;out vec4 frag;float shadow(){vec3 p=vLight.xyz/max(vLight.w,0.0001);p=p*0.5+0.5;if(p.x<0.0||p.x>1.0||p.y<0.0||p.y>1.0||p.z>1.0)return 1.0;float bias=0.0015;float s=0.0;float texel=1.0/1024.0;for(int x=-1;x<=1;x++)for(int y=-1;y<=1;y++){float d=texture(uShadow,p.xy+vec2(x,y)*texel).r;s+=p.z-bias<=d?1.0:0.0;}return s/9.0;}vec3 fresnel(float c,vec3 f0){return f0+(1.0-f0)*pow(1.0-c,5.0);}void main(){vec3 N=normalize(vNormal),V=normalize(uCamera-vPos),L=normalize(-uSunDir),H=normalize(V+L);float NoL=max(dot(N,L),0.0),NoV=max(dot(N,V),0.0),NoH=max(dot(N,H),0.0),VoH=max(dot(V,H),0.0);float a=max(0.045,uRough*uRough);float a2=a*a;float d=(NoH*NoH*(a2-1.0)+1.0);float D=a2/(3.14159265*d*d);float k=(a+1.0);k=k*k/8.0;float Gv=NoV/(NoV*(1.0-k)+k);float Gl=NoL/(NoL*(1.0-k)+k);vec3 F0=mix(vec3(0.04),vec3(0.86),uMetal);vec3 F=fresnel(VoH,F0);vec3 spec=(D*Gv*Gl*F)/max(4.0*NoV*NoL,0.001);vec3 base=max(uBaseColor,vec3(0.001));vec3 kd=(1.0-F)*(1.0-uMetal);float sh=shadow();vec3 direct=(kd*base/3.14159265+spec)*uSunColor*NoL*sh;vec3 env=mix(uSky,vec3(0.75,0.82,0.92),pow(1.0-NoV,5.0));vec3 color=(direct+kd*base*0.16+env*spec*0.35);color=vec3(1.0)-exp(-color*uExposure);color=pow(color,vec3(1.0/2.2));frag=vec4(color,1.0);}";}
+    private String mainFragment(){return "#version 300 es\nprecision highp float;in vec3 vPos,vNormal;in vec4 vLight;in vec2 vUV;uniform vec3 uCamera,uSunDir,uSunColor,uSky,uBaseColor;uniform float uRough,uMetal,uExposure;uniform sampler2D uShadow;out vec4 frag;float shadow(){vec3 p=vLight.xyz/max(vLight.w,0.0001);p=p*0.5+0.5;if(p.x<0.0||p.x>1.0||p.y<0.0||p.y>1.0||p.z>1.0)return 1.0;float bias=0.0015;float s=0.0;float texel=1.0/1024.0;for(int x=-1;x<=1;x++)for(int y=-1;y<=1;y++){float d=texture(uShadow,p.xy+vec2(x,y)*texel).r;s+=p.z-bias<=d?1.0:0.0;}return s/9.0;}vec3 fresnel(float c,vec3 f0){return f0+(1.0-f0)*pow(1.0-c,5.0);}void main(){vec3 N=normalize(vNormal),V=normalize(uCamera-vPos),L=normalize(-uSunDir),H=normalize(V+L);float NoL=max(dot(N,L),0.0),NoV=max(dot(N,V),0.0),NoH=max(dot(N,H),0.0),VoH=max(dot(V,H),0.0);float a=max(0.045,uRough*uRough);float a2=a*a;float d=(NoH*NoH*(a2-1.0)+1.0);float D=a2/(3.14159265*d*d);float k=(a+1.0);k=k*k/8.0;float Gv=NoV/(NoV*(1.0-k)+k);float Gl=NoL/(NoL*(1.0-k)+k);vec3 F0=mix(vec3(0.04),vec3(0.86),uMetal);vec3 F=fresnel(VoH,F0);vec3 spec=(D*Gv*Gl*F)/max(4.0*NoV*NoL,0.001);vec3 base=max(uBaseColor,vec3(0.001));vec3 kd=(1.0-F)*(1.0-uMetal);float sh=shadow();vec3 direct=(kd*base/3.14159265+spec)*uSunColor*NoL*sh;vec3 env=mix(uSky,vec3(0.75,0.82,0.92),pow(1.0-NoV,5.0));vec3 color=(direct+kd*base*0.16+env*spec*0.35*uReflections);float fogAmount=uFog*clamp(length(uCamera-vPos)/70.0,0.0,1.0);color=mix(color,uSky,fogAmount);color=vec3(1.0)-exp(-color*uExposure);color=pow(color,vec3(1.0/2.2));frag=vec4(color,1.0);}";}
     private String shadowVertex(){return "#version 300 es\nlayout(location=0)in vec3 aPos;uniform mat4 uModel,uLightVP;void main(){gl_Position=uLightVP*uModel*vec4(aPos,1.0);}";}
     private String shadowFragment(){return "#version 300 es\nprecision mediump float;void main(){}";}
     private String skyVertex(){return "#version 300 es\nout vec2 vSkyUV;void main(){vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));vSkyUV=p;gl_Position=vec4(p*2.0-1.0,0.999,1.0);}";}
-    private String skyFragment(){return "#version 300 es\nprecision highp float;in vec2 vSkyUV;uniform float uTime,uAspect;uniform vec3 uForward,uRight,uUp;out vec4 frag;float hash(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}float noise(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(mix(hash(i),hash(i+vec3(1,0,0)),f.x),mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);}void main(){vec2 ndc=vSkyUV*2.0-1.0;float aspect=uAspect;vec3 ray=normalize(uForward+uRight*ndc.x*aspect+uUp*ndc.y);float h=clamp(ray.y*0.5+0.5,0.0,1.0);vec3 horizon=vec3(0.72,0.82,0.96),zenith=vec3(0.025,0.08,0.20);vec3 c=mix(horizon,zenith,pow(h,0.75));float cloudBand=smoothstep(0.02,0.18,ray.y)*smoothstep(0.72,0.30,ray.y);vec3 q=ray*3.2+vec3(uTime*0.006,0.0,uTime*0.004);float n=noise(q)*0.62+noise(q*2.1)*0.25+noise(q*4.0)*0.13;float clouds=smoothstep(0.57,0.74,n)*cloudBand;c=mix(c,vec3(0.94,0.96,0.985),clouds*0.48);vec3 sunDir=normalize(vec3(-0.42,-0.82,-0.34));float sunDot=max(dot(ray,-sunDir),0.0);float sun=pow(sunDot,720.0)+0.12*pow(sunDot,18.0);c+=vec3(1.0,0.72,0.40)*sun;frag=vec4(c,1.0);}";}
+    private String skyFragment(){return "#version 300 es\nprecision highp float;in vec2 vSkyUV;uniform float uTime,uAspect;uniform vec3 uForward,uRight,uUp;uniform float uClouds;out vec4 frag;float hash(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}float noise(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(mix(hash(i),hash(i+vec3(1,0,0)),f.x),mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);}void main(){vec2 ndc=vSkyUV*2.0-1.0;float aspect=uAspect;vec3 ray=normalize(uForward+uRight*ndc.x*aspect+uUp*ndc.y);float h=clamp(ray.y*0.5+0.5,0.0,1.0);vec3 horizon=vec3(0.72,0.82,0.96),zenith=vec3(0.025,0.08,0.20);vec3 c=mix(horizon,zenith,pow(h,0.75));float cloudBand=smoothstep(0.02,0.18,ray.y)*smoothstep(0.72,0.30,ray.y);vec3 q=ray*3.2+vec3(uTime*0.006,0.0,uTime*0.004);float n=noise(q)*0.62+noise(q*2.1)*0.25+noise(q*4.0)*0.13;float clouds=smoothstep(0.57,0.74,n)*cloudBand*uClouds;c=mix(c,vec3(0.94,0.96,0.985),clouds*0.48);vec3 sunDir=normalize(vec3(-0.42,-0.82,-0.34));float sunDot=max(dot(ray,-sunDir),0.0);float sun=pow(sunDot,720.0)+0.12*pow(sunDot,18.0);c+=vec3(1.0,0.72,0.40)*sun;frag=vec4(c,1.0);}";}
     public float[] projectWorldToScreen(float x,float y,float z){
         float[] vp=viewProj();
         float cx=vp[0]*x+vp[4]*y+vp[8]*z+vp[12];
