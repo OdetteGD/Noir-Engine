@@ -31,14 +31,14 @@ public final class ProjectManagerActivity extends Activity {
         TextView title=text("NOIR 3D ENGINE",28,Color.WHITE);
         root.addView(title,new LinearLayout.LayoutParams(-1,70));
 
-        TextView sub=text("PROJECT MANAGER  •  FOREGROUND EDITOR",13,Color.rgb(143,167,255));
+        TextView sub=text("PROJECT MANAGER  •  NOIR ENGINE v1.0.0  •  FOREGROUND APP",13,Color.rgb(143,167,255));
         root.addView(sub,new LinearLayout.LayoutParams(-1,45));
 
         LinearLayout actions=new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
         addButton(actions,"NEW PROJECT",v->newProject());
         addButton(actions,"OPEN PROJECT",v->openPackage());
-        addButton(actions,"EXPORT APK",v->exportSelected());
+        addButton(actions,"EXPORT PROJECT PACKAGE",v->exportSelected());
         root.addView(actions,new LinearLayout.LayoutParams(-1,70));
 
         TextView storage=text("Projects: "+workspace.root().getAbsolutePath(),11,Color.rgb(130,145,170));
@@ -146,7 +146,7 @@ public final class ProjectManagerActivity extends Activity {
                     if(out==null) throw new IOException("Unable to create destination");
                     NoirProjectPackage.export(this,selectedForExport,out);
                 }
-                Toast.makeText(this,"Noir APK package exported.",Toast.LENGTH_LONG).show();
+                Toast.makeText(this,"Noir project package exported.",Toast.LENGTH_LONG).show();
             }
         } catch(Exception e) {
             Toast.makeText(this,"Operation failed: "+e.getMessage(),Toast.LENGTH_LONG).show();
