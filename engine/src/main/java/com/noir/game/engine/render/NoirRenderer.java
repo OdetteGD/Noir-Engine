@@ -63,6 +63,7 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
     private int sModel,sLightVP;
     private int skyTime, skyForward, skyRight, skyUp, skyAspect;
     private long lastNanos;
+    private float frameTimeMs;
 
     private final float[] cubeModels=new float[7*16];
     private final float[] groundModel=new float[16];
@@ -106,6 +107,7 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
         createShadowMap();
         buildSceneModels();
         lastNanos=System.nanoTime();
+        frameTimeMs=0f;
     }
 
     @Override public void onSurfaceChanged(GL10 gl,int w,int h){
@@ -117,6 +119,7 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
         long now=System.nanoTime();
         float dt=Math.min(0.05f,(now-lastNanos)/1_000_000_000f);
         lastNanos=now;
+        frameTimeMs=dt*1000f;
         time+=dt;
         if(mode==Mode.EDITOR) editorCamera.updateOrbit();
 
@@ -133,13 +136,73 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
 
     public void orbit(float dx,float dy){
         if(mode!=Mode.EDITOR)return;
-        editorCamera.yaw-=dx*0.20f;
-        editorCamera.pitch=Math.max(-82f,Math.min(82f,editorCamera.pitch-dy*0.20f));
-        editorCamera.distance=Math.max(3f,Math.min(80f,editorCamera.distance));
+        // One-finger editor orbit: drag right = rotate right, drag up = orbit upward.
+        editorCamera.yaw+=dx*0.24f;
+        editorCamera.pitch=Math.max(-82f,Math.min(82f,editorCamera.pitch-dy*0.24f));
+        editorCamera.distance=Math.max(2.0f,Math.min(100f,editorCamera.distance));
+    }
+
+    public void pan(float dx,float dy){
+        if(mode!=Mode.EDITOR)return;
+        float[] forward=cameraForward();
+        float[] right=normalize(cross(forward,new float[]{0,1,0}));
+        float[] up=normalize(cross(right,forward));
+        float scale=editorCamera.distance*0.0026f;
+        editorCamera.targetX+=(-right[0]*dx+up[0]*dy)*scale;
+        editorCamera.targetY+=(-right[1]*dx+up[1]*dy)*scale;
+        editorCamera.targetZ+=(-right[2]*dx+up[2]*dy)*scale;
     }
 
     public void zoom(float amount){
-        if(mode==Mode.EDITOR) editorCamera.distance=Math.max(3f,Math.min(80f,editorCamera.distance+amount));
+        if(mode==Mode.EDITOR) editorCamera.distance=Math.max(2.0f,Math.min(100f,editorCamera.distance+amount));
+    }
+
+    public void resetEditorCamera(){
+        editorCamera.yaw=-90f;
+        editorCamera.pitch=-12f;
+        editorCamera.distance=18f;
+        editorCamera.targetX=0f;editorCamera.targetY=1.4f;editorCamera.targetZ=0f;
+        editorCamera.updateOrbit();
+    }
+
+    public float frameTimeMs(){return frameTimeMs;}
+
+    public float gizmoWorldSize(){
+        return Math.max(0.8f,Math.min(4.5f,editorCamera.distance*0.10f));
+    }
+
+    public float gizmoPixelSize(){return Math.max(54f,Math.min(120f,gizmoWorldSize()*42f));}
+
+    public float[] cameraForward(){
+        float yaw=mode==Mode.RUNTIME?runtimeCamera.yaw:editorCamera.yaw;
+        float pitch=mode==Mode.RUNTIME?runtimeCamera.pitch:editorCamera.pitch;
+        float yr=(float)Math.toRadians(yaw),pr=(float)Math.toRadians(pitch);
+        return normalize(new float[]{
+            (float)(Math.cos(pr)*Math.cos(yr)),
+            (float)Math.sin(pr),
+            (float)(Math.cos(pr)*Math.sin(yr))
+        });
+    }
+
+    /** Returns origin xyz + normalized direction xyz for a viewport pixel. */
+    public float[] screenRay(float sx,float sy){
+        if(width<=0||height<=0)return null;
+        float nx=(sx/(float)width)*2f-1f;
+        float ny=1f-(sy/(float)height)*2f;
+        float tan=(float)Math.tan(Math.toRadians(64f)*0.5);
+        float aspect=(float)width/(float)Math.max(1,height);
+        float[] forward=cameraForward();
+        float[] right=normalize(cross(forward,new float[]{0,1,0}));
+        float[] up=normalize(cross(right,forward));
+        float[] dir=normalize(new float[]{
+            forward[0]+right[0]*nx*aspect*tan+up[0]*ny*tan,
+            forward[1]+right[1]*nx*aspect*tan+up[1]*ny*tan,
+            forward[2]+right[2]*nx*aspect*tan+up[2]*ny*tan
+        });
+        float ox,oy,oz;
+        if(mode==Mode.RUNTIME){ox=runtimeCamera.x;oy=runtimeCamera.y;oz=runtimeCamera.z;}
+        else {ox=editorCamera.x;oy=editorCamera.y;oz=editorCamera.z;}
+        return new float[]{ox,oy,oz,dir[0],dir[1],dir[2]};
     }
 
     public void runtimeLook(float dx,float dy){
