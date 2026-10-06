@@ -14,6 +14,7 @@ import java.io.*;
 
 public final class MainActivity extends Activity {
     private NoirRenderer renderer;
+    private NoirEditorView editorUi;
 
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
@@ -26,12 +27,20 @@ public final class MainActivity extends Activity {
         renderer=new NoirRenderer();
 
         NoirSurface surface=new NoirSurface(this,renderer);
-        NoirEditorView ui=new NoirEditorView(this,editor,renderer,surface);
+        editorUi=new NoirEditorView(this,editor,renderer,surface);
 
         FrameLayout root=new FrameLayout(this);
         root.addView(surface,new FrameLayout.LayoutParams(-1,-1));
-        root.addView(ui,new FrameLayout.LayoutParams(-1,-1));
+        root.addView(editorUi,new FrameLayout.LayoutParams(-1,-1));
         setContentView(root);
+    }
+
+    @Override public void onBackPressed(){
+        if(editorUi!=null && editorUi.getVisibility()!=android.view.View.VISIBLE){
+            editorUi.stopPlay();
+            return;
+        }
+        super.onBackPressed();
     }
 
     private NoirScene loadProjectScene(String projectPath) {
