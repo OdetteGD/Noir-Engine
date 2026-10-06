@@ -4,6 +4,9 @@ import android.content.Context;
 import android.opengl.GLSurfaceView;
 import android.view.MotionEvent;
 import com.noir.game.engine.render.NoirRenderer;
+import javax.microedition.khronos.egl.EGL10;
+import javax.microedition.khronos.egl.EGLConfig;
+import javax.microedition.khronos.egl.EGLDisplay;
 
 /** Full-screen GPU viewport with editor orbit and runtime mobile look. */
 public final class NoirSurface extends GLSurfaceView {
@@ -16,11 +19,7 @@ public final class NoirSurface extends GLSurfaceView {
         super(c);
         renderer=r;
         setEGLContextClientVersion(3);
-        try {
-            setEGLConfigChooser(8,8,8,8,24,8,4);
-        } catch(Exception ignored) {
-            setEGLConfigChooser(8,8,8,8,24,8);
-        }
+        setEGLConfigChooser(new MultisampleChooser());
         setRenderer(r);
         setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
         setFocusable(true);
@@ -28,6 +27,24 @@ public final class NoirSurface extends GLSurfaceView {
 
     public void setRuntimeMode(boolean runtime){
         queueEvent(() -> renderer.setMode(runtime ? NoirRenderer.Mode.RUNTIME : NoirRenderer.Mode.EDITOR));
+    }
+
+    private static final class MultisampleChooser implements EGLConfigChooser {
+        @Override public EGLConfig chooseConfig(EGL10 egl,EGLDisplay display){
+            int[] attrs={
+                EGL10.EGL_RED_SIZE,8,EGL10.EGL_GREEN_SIZE,8,EGL10.EGL_BLUE_SIZE,8,
+                EGL10.EGL_ALPHA_SIZE,8,EGL10.EGL_DEPTH_SIZE,24,EGL10.EGL_STENCIL_SIZE,8,
+                EGL10.EGL_SAMPLE_BUFFERS,1,EGL10.EGL_SAMPLES,4,EGL10.EGL_NONE
+            };
+            EGLConfig[] configs=new EGLConfig[16];int[] count=new int[1];
+            if(!egl.eglChooseConfig(display,attrs,configs,configs.length,count)||count[0]==0){
+                int[] fallback={EGL10.EGL_RED_SIZE,8,EGL10.EGL_GREEN_SIZE,8,EGL10.EGL_BLUE_SIZE,8,
+                    EGL10.EGL_ALPHA_SIZE,8,EGL10.EGL_DEPTH_SIZE,24,EGL10.EGL_STENCIL_SIZE,8,EGL10.EGL_NONE};
+                if(!egl.eglChooseConfig(display,fallback,configs,configs.length,count)||count[0]==0)
+                    throw new IllegalArgumentException("No compatible OpenGL ES 3 config");
+            }
+            return configs[0];
+        }
     }
 
     @Override public boolean onTouchEvent(MotionEvent e){
