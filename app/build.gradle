@@ -15,8 +15,8 @@ android {
         applicationId 'com.noir.game.engine'
         minSdk 26
         targetSdk 35
-        versionCode 40
-        versionName '0.4.0'
+        versionCode 100
+        versionName '1.0.0'
     }
 
     externalNativeBuild {
