@@ -1,8 +1,16 @@
 plugins { id 'com.android.application' }
 
+def noirKeystore = rootProject.file("keystore.properties")
+def noirProps = new Properties()
+if (noirKeystore.exists()) {
+    noirKeystore.withInputStream { noirProps.load(it) }
+}
+
 android {
     namespace 'com.noir.game.engine'
     compileSdk 35
+    ndkVersion "28.1.13356709"
+
     defaultConfig {
         applicationId 'com.noir.game.engine'
         minSdk 26
@@ -10,10 +18,52 @@ android {
         versionCode 40
         versionName '0.4.0'
     }
+
+    externalNativeBuild {
+        cmake {
+            path file("src/main/cpp/CMakeLists.txt")
+            version "3.22.1"
+        }
+    }
+
+    signingConfigs {
+        release {
+            def storePath = System.getenv("NOIR_KEYSTORE") ?: noirProps.getProperty("storeFile")
+            def storePwd = System.getenv("NOIR_STORE_PASSWORD") ?: noirProps.getProperty("storePassword")
+            def keyAliasValue = System.getenv("NOIR_KEY_ALIAS") ?: noirProps.getProperty("keyAlias")
+            def keyPwd = System.getenv("NOIR_KEY_PASSWORD") ?: noirProps.getProperty("keyPassword")
+            if (storePath && storePwd && keyAliasValue && keyPwd) {
+                storeFile file(storePath)
+                storePassword storePwd
+                keyAlias keyAliasValue
+                keyPassword keyPwd
+            }
+        }
+    }
+
     buildTypes {
-        debug { debuggable true; minifyEnabled false }
-        release { minifyEnabled false; shrinkResources false }
+        debug {
+            debuggable true
+            minifyEnabled false
+        }
+        release {
+            minifyEnabled false
+            shrinkResources false
+            if (System.getenv("NOIR_KEYSTORE") || noirKeystore.exists()) {
+                signingConfig signingConfigs.release
+            } else {
+                signingConfig signingConfigs.debug
+            }
+        }
+    }
+
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging false
+        }
     }
 }
 
-dependencies { implementation project(':engine') }
+dependencies {
+    implementation project(':engine')
+}
