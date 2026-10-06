@@ -113,18 +113,30 @@ public class Node3D : Node
     public Vector3 RotationDegrees { get; set; }
     public Vector3 Scale { get; set; } = Vector3.One;
     public Vector3 GlobalPosition => Position;
+    public Vector3 GlobalRotationDegrees => RotationDegrees;
+    public Vector3 Forward => new(0,0,-1);
+    public Vector3 Right => new(1,0,0);
+    public Vector3 Up => new(0,1,0);
+    public bool Visible { get; set; } = true;
+    public bool ProcessEnabled { get; set; } = true;
+    public T AddComponent<T>() where T : Component, new() { var c=new T { Owner=this }; return c; }
 }
 
 public class Character3D : Node3D
 {
     public Vector3 Velocity { get; set; }
     public bool IsOnFloor { get; internal set; }
+    public float Gravity { get; set; } = 9.81f;
     public void MoveAndSlide() { /* Runtime bridge applies the velocity in the native engine. */ }
+    public void ApplyGravity(float delta) { if(!IsOnFloor) Velocity += new Vector3(0,-Gravity*delta,0); }
 }
 
 public class Camera3D : Node3D
 {
     public float Fov { get; set; } = 70f;
+    public float Near { get; set; } = 0.05f;
+    public float Far { get; set; } = 500f;
+    public bool Current { get; set; }
 }
 
 public class Component : Object { public Node3D? Owner { get; internal set; } }
