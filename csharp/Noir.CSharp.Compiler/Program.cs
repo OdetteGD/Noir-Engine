@@ -30,7 +30,7 @@ static int Main(string[] args)
     var sources=args.Skip(start).Select(File.ReadAllText).ToArray();
     var trees=sources.Select((s,i)=>CSharpSyntaxTree.ParseText(
         s,
-        CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.CSharp12),
+        CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.CSharp14),
         path:Path.GetFileName(args[start+i]))).ToArray();
 
     var refs=new List<MetadataReference>();
