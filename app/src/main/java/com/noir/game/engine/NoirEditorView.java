@@ -1064,9 +1064,16 @@ public final class NoirEditorView extends android.view.View {
     private void checkCSharpSdk(){
         if(state.projectRoot==null){status="No project";return;}
         File project=new File(state.projectRoot,"csharp/Noir.Game/Noir.Game.csproj");
-        status=project.isFile()?"C# .csproj detected":"C# project not created";
-        state.log(status);
-        Toast.makeText(getContext(),status,Toast.LENGTH_SHORT).show();
+        if(!project.isFile()){
+            status="C# project not created";
+            state.log(status);
+            Toast.makeText(getContext(),status,Toast.LENGTH_SHORT).show();
+            invalidate();return;
+        }
+        String report=NoirCSharpRuntime.toolchainInfo(getContext());
+        status=report.contains("Roslyn=OK")?"C# SDK + Roslyn ready":"C# SDK bundle incomplete";
+        state.log(report);
+        Toast.makeText(getContext(),status,Toast.LENGTH_LONG).show();
         invalidate();
     }
 
