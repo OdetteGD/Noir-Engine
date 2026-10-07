@@ -145,7 +145,15 @@ static bool makeSwap(){
     uint32_t count=caps.minImageCount+1;if(caps.maxImageCount&&count>caps.maxImageCount)count=caps.maxImageCount;
     VkSwapchainCreateInfoKHR si{VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};si.surface=g.surface;si.minImageCount=count;si.imageFormat=fmt.format;si.imageColorSpace=fmt.colorSpace;si.imageExtent=ex;si.imageArrayLayers=1;si.imageUsage=VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;si.imageSharingMode=VK_SHARING_MODE_EXCLUSIVE;si.preTransform=caps.currentTransform;si.compositeAlpha=VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;si.presentMode=VK_PRESENT_MODE_FIFO_KHR;si.clipped=VK_TRUE;
     if(vkCreateSwapchainKHR(g.device,&si,nullptr,&g.swapchain)!=VK_SUCCESS)return false;
-    g.format=fmt.format;g.extent=ex;vkGetSwapchainImagesKHR(g.device,g.swapchain,&g.imageCount,nullptr);if(!g.imageCount||g.imageCount>8)return false;vkGetSwapchainImagesKHR(g.device,g.swapchain,&g.imageCount,g.images);
+    g.format=fmt.format;g.extent=ex;
+    uint32_t countImages=0;
+    vkGetSwapchainImagesKHR(g.device,g.swapchain,&countImages,nullptr);
+    if(!countImages)return false;
+    std::vector<VkImage> swapImages(countImages);
+    vkGetSwapchainImagesKHR(g.device,g.swapchain,&countImages,swapImages.data());
+    if(countImages>8)countImages=8;
+    g.imageCount=countImages;
+    for(uint32_t i=0;i<g.imageCount;i++)g.images[i]=swapImages[i];
     VkImageViewCreateInfo iv{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};iv.viewType=VK_IMAGE_VIEW_TYPE_2D;iv.format=g.format;iv.subresourceRange.aspectMask=VK_IMAGE_ASPECT_COLOR_BIT;iv.subresourceRange.levelCount=1;iv.subresourceRange.layerCount=1;
     for(uint32_t i=0;i<g.imageCount;i++){iv.image=g.images[i];if(vkCreateImageView(g.device,&iv,nullptr,&g.views[i])!=VK_SUCCESS)return false;}
     return true;
