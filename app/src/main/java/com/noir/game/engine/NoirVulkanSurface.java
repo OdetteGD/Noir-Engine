@@ -12,26 +12,38 @@ import android.widget.Toast;
 /** Native Vulkan presentation surface. Backend is selected before Activity creation. */
 public final class NoirVulkanSurface extends SurfaceView implements SurfaceHolder.Callback, NoirViewport {
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private final NoirRenderer renderer;
     private boolean attached;
     private boolean running;
     private final Runnable frameLoop = new Runnable() {
         @Override public void run() {
             if (!running || !attached) return;
-            try { NoirNative.vulkanDrawFrame(); } catch (Throwable ignored) {}
+            try {
+                float[] sun=renderer.environmentSunDirection();
+                NoirNative.vulkanSetScene(renderer.sceneSnapshot());
+                NoirNative.vulkanSetCamera(renderer.camera().yaw,renderer.camera().pitch,renderer.camera().distance,
+                        renderer.camera().targetX,renderer.camera().targetY,renderer.camera().targetZ);
+                NoirNative.vulkanSetEnvironment(renderer.environmentSkyMode(),renderer.environmentExposure(),
+                        renderer.environmentSkyBrightness(),renderer.environmentFogDensity(),
+                        sun[0],sun[1],sun[2]);
+                NoirNative.vulkanSetQuality(renderer.nativeQualityTier());
+                NoirNative.vulkanDrawFrame();
+            } catch (Throwable ignored) {}
             handler.postDelayed(this, 16L);
         }
     };
 
-    public NoirVulkanSurface(Context context) {
+    public NoirVulkanSurface(Context context, NoirRenderer renderer) {
         super(context);
-        setBackgroundColor(Color.rgb(10,15,24));
+        this.renderer=renderer;
+        setBackgroundColor(Color.rgb(246,243,236));
         getHolder().addCallback(this);
         setFocusable(true);
     }
 
     @Override public void surfaceCreated(SurfaceHolder holder) {
         try {
-            boolean ok = NoirNative.vulkanAttachSurface(holder.getSurface());
+            boolean ok = NoirNative.vulkanAttachSurface(holder.getSurface(), getContext().getAssets());
             attached = ok;
             running = ok;
             if (ok) handler.post(frameLoop);
@@ -42,7 +54,7 @@ public final class NoirVulkanSurface extends SurfaceView implements SurfaceHolde
         }
     }
 
-    @Override public void surfaceChanged(SurfaceHolder holder,int format,int width,int height) {}
+    @Override public void surfaceChanged(SurfaceHolder holder,int format,int width,int height) { if(attached) NoirNative.vulkanResize(width,height); }
 
     @Override public void surfaceDestroyed(SurfaceHolder holder) {
         running=false; attached=false; handler.removeCallbacks(frameLoop);
