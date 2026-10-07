@@ -97,7 +97,7 @@ public final class NoirEditorView extends android.view.View {
     @Override protected void onDraw(Canvas c){
         super.onDraw(c);
         float w=getWidth(),h=getHeight();
-        float[] nativeLayout=NoirNative.editorLayout(w,h,density);
+        float[] nativeLayout=NoirNative.isLoaded()?NoirNative.editorLayout(w,h,density):null;
         compactUi=w<dp(700);
         if(nativeLayout!=null&&nativeLayout.length>=7){
             topBar=nativeLayout[0];tabBar=nativeLayout[1];bottomBar=nativeLayout[2];
