@@ -227,17 +227,29 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
 
     public void setScene(NoirScene scene){
         if(scene==null){sceneSnapshot=new float[0];sceneSnapshotVersion++;return;}
-        List<NoirNode> nodes=scene.flatten();
         ArrayList<float[]> rows=new ArrayList<>();
-        for(NoirNode n:nodes){
-            if(n==scene.root || !n.visible || n.kind==NoirNode.Kind.WORLD_ENVIRONMENT)continue;
-            rows.add(new float[]{n.px,n.py,n.pz,n.sx,n.sy,n.sz,n.rx,n.ry,n.rz,n.kind.ordinal()});
-        }
+        collectSceneNodes(scene.root,0f,0f,0f,1f,1f,1f,0f,0f,0f,rows);
         float[] packed=new float[rows.size()*10];
         int o=0;
         for(float[] row:rows){System.arraycopy(row,0,packed,o,10);o+=10;}
         sceneSnapshot=packed;
         sceneSnapshotVersion++;
+    }
+
+    private void collectSceneNodes(NoirNode node,float pX,float pY,float pZ,
+                                    float pSx,float pSy,float pSz,float pRx,float pRy,float pRz,
+                                    ArrayList<float[]> rows){
+        if(node!=null && node.parent!=null && node.visible && node.kind!=NoirNode.Kind.WORLD_ENVIRONMENT){
+            float wx=pX+node.px*pSx, wy=pY+node.py*pSy, wz=pZ+node.pz*pSz;
+            float wsx=pSx*node.sx, wsy=pSy==0f?node.sy:pSy*node.sy, wsz=pSz*node.sz;
+            if(!Float.isFinite(wsx)||Math.abs(wsx)<0.001f)wsx=node.sx;
+            if(!Float.isFinite(wsy)||Math.abs(wsy)<0.001f)wsy=node.sy;
+            if(!Float.isFinite(wsz)||Math.abs(wsz)<0.001f)wsz=node.sz;
+            rows.add(new float[]{wx,wy,wz,wsx,wsy,wsz,pRx+node.rx,pRy+node.ry,pRz+node.rz,node.kind.ordinal()});
+            pX=wx;pY=wy;pZ=wz;pSx=wsx;pSy=wsy;pSz=wsz;pRx+=node.rx;pRy+=node.ry;pRz+=node.rz;
+        }
+        if(node!=null) for(NoirNode child:node.children)
+            collectSceneNodes(child,pX,pY,pZ,pSx,pSy,pSz,pRx,pRy,pRz,rows);
     }
 
     public float[] sceneSnapshot(){return sceneSnapshot;}
