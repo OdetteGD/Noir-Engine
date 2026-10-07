@@ -80,7 +80,7 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
     private final float[] groundModel=new float[16];
     private float time;
 
-    public NoirRenderer(){ setQualityPreset(QualityPreset.ULTRA); editorCamera.updateOrbit(); }
+    public NoirRenderer(){ setQualityPreset(QualityPreset.MOBILE); editorCamera.updateOrbit(); }
 
     @Override public void onSurfaceCreated(GL10 gl,EGLConfig config){
         GLES30.glClearColor(0.02f,0.03f,0.055f,1f);
@@ -396,22 +396,56 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
     }
 
     private void createShadowMap(){
+        // Mobile-safe shadow allocation. Some devices expose GLES 3 but have
+        // much lower texture limits or cannot allocate a 2048^2 depth target.
+        int[] maxTexture=new int[1];
+        GLES30.glGetIntegerv(GLES30.GL_MAX_TEXTURE_SIZE,maxTexture,0);
+        int requested=Math.max(512,Math.min(quality.shadowSize,2048));
+        int size=Math.min(requested,Math.max(512,maxTexture[0]));
         int[] t=new int[1],f=new int[1];
-        GLES30.glGenTextures(1,t,0); shadowTexture=t[0];
+
+        GLES30.glGenTextures(1,t,0);
+        shadowTexture=t[0];
+        if(shadowTexture==0) { quality.shadows=false; return; }
+
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,shadowTexture);
-        GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D,0,GLES30.GL_DEPTH_COMPONENT16,quality.shadowSize,quality.shadowSize,0,GLES30.GL_DEPTH_COMPONENT,GLES30.GL_UNSIGNED_SHORT,null);
+        GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D,0,GLES30.GL_DEPTH_COMPONENT16,size,size,0,
+                GLES30.GL_DEPTH_COMPONENT,GLES30.GL_UNSIGNED_SHORT,null);
+        int texError=GLES30.glGetError();
+        if(texError!=GLES30.GL_NO_ERROR){
+            GLES30.glDeleteTextures(1,t,0);
+            shadowTexture=0;
+            quality.shadows=false;
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,0);
+            return;
+        }
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D,GLES30.GL_TEXTURE_MIN_FILTER,GLES30.GL_LINEAR);
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D,GLES30.GL_TEXTURE_MAG_FILTER,GLES30.GL_LINEAR);
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D,GLES30.GL_TEXTURE_WRAP_S,GLES30.GL_CLAMP_TO_EDGE);
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D,GLES30.GL_TEXTURE_WRAP_T,GLES30.GL_CLAMP_TO_EDGE);
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,0);
-        GLES30.glGenFramebuffers(1,f,0); shadowFbo=f[0];
+
+        GLES30.glGenFramebuffers(1,f,0);
+        shadowFbo=f[0];
+        if(shadowFbo==0){
+            GLES30.glDeleteTextures(1,t,0);
+            shadowTexture=0;
+            quality.shadows=false;
+            return;
+        }
+
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,shadowFbo);
-        GLES30.glFramebufferTexture2D(GLES30.GL_FRAMEBUFFER,GLES30.GL_DEPTH_ATTACHMENT,GLES30.GL_TEXTURE_2D,shadowTexture,0);
+        GLES30.glFramebufferTexture2D(GLES30.GL_FRAMEBUFFER,GLES30.GL_DEPTH_ATTACHMENT,
+                GLES30.GL_TEXTURE_2D,shadowTexture,0);
         GLES30.glDrawBuffers(0,new int[0],0);
         GLES30.glReadBuffer(GLES30.GL_NONE);
-        if(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER)!=GLES30.GL_FRAMEBUFFER_COMPLETE){
-            GLES30.glDeleteFramebuffers(1,f,0); shadowFbo=0;
+        int status=GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER);
+        if(status!=GLES30.GL_FRAMEBUFFER_COMPLETE){
+            GLES30.glDeleteFramebuffers(1,f,0);
+            GLES30.glDeleteTextures(1,t,0);
+            shadowFbo=0;
+            shadowTexture=0;
+            quality.shadows=false;
         }
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0);
     }
