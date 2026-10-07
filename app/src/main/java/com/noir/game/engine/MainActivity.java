@@ -34,9 +34,8 @@ public final class MainActivity extends Activity {
             EditorState editor=new EditorState(scene,projectPath);
             renderer=new NoirRenderer();
 
-            // Three.js/WebGL2 is now the editor viewport. Native GLES/Vulkan
-            // remains available for runtime/engine work, but the editor no
-            // longer depends on the incomplete native Vulkan clear-only path.
+            // NoirGFX C++ is the editor viewport. Java remains the editor interaction
+            // layer; Vulkan stays isolated until its full scene pipeline is ready.
             renderer.setGraphicsBackend(NoirRenderer.GraphicsBackend.GLES);
             surface=new NoirSurface(this,renderer);
             surface.setEditorTapListener((x,y)->{});
