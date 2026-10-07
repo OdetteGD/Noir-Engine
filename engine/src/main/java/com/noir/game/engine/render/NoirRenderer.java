@@ -521,7 +521,7 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
         // Deterministic procedural editor terrain: no imported asset is required
         // to make the 3D viewport useful. Multiple low-cost waves create varied
         // elevations while keeping results identical between editor launches.
-        final int grid=7;
+        final int grid=3;
         final float spacing=2.15f;
         for(int z=-grid;z<=grid;z++){
             for(int x=-grid;x<=grid;x++){
