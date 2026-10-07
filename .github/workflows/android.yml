@@ -58,7 +58,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cp csharp/Noir/bin/Release/net10.0/Noir.dll build/csharp/sdk/
+          cp csharp/bin/Release/net10.0/Noir.dll build/csharp/sdk/
           cp csharp/Noir.Mobile.Scripting/bin/Release/net10.0/Noir.Mobile.Scripting.dll build/csharp/sdk/
           cp csharp/Noir.Mobile.Scripting/bin/Release/net10.0-android36.1/Noir.Mobile.Scripting.dll build/csharp/sdk/Noir.Mobile.Scripting.Android.dll
           cp csharp/Noir.GameTemplate/bin/Release/net10.0-android36.1/Noir.Game.dll build/csharp/sdk/
