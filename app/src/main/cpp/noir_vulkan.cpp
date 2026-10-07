@@ -333,7 +333,16 @@ extern "C" JNIEXPORT jboolean JNICALL Java_com_noir_game_engine_NoirNative_vulka
     VkAndroidSurfaceCreateInfoKHR si{VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR};si.window=g.window;if(vkCreateAndroidSurfaceKHR(g.instance,&si,nullptr,&g.surface)!=VK_SUCCESS){reset();return JNI_FALSE;}
     if(!makeDevice()||!makeAll()){reset();return JNI_FALSE;}g.initialized=true;return JNI_TRUE;
 }
-extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanResize(JNIEnv*,jclass,jint w,jint h){if(!g.initialized)return;(void)w;(void)h;}
+extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanResize(JNIEnv*,jclass,jint w,jint h){
+    if(!g.initialized||w<=0||h<=0)return;
+    if(static_cast<uint32_t>(w)==g.extent.width&&static_cast<uint32_t>(h)==g.extent.height)return;
+    destroySwap();
+    if(!makeSwap()||!makeDepth()||!makeRenderPass()||!makeFramebuffers()||!makePipeline()||!makeFrameResources()){
+        reset();
+        return;
+    }
+    rebuildVertices();
+}
 extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanSetScene(JNIEnv*env,jclass,jfloatArray arr){
     if(!g.initialized)return;
     g.scene.clear();
