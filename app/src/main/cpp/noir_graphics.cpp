@@ -871,6 +871,7 @@ void Renderer::frameRuntime(float x,float y,float z,float yawDeg,float pitchDeg,
 float Renderer::frameTimeMs() const{return impl_->frameMs;}
 const char* Renderer::backendInfo() const{return "NoirGFX C++ / OpenGL ES 3.0 • mobile forward PBR";}
 const char* Renderer::lastError() const{return g_lastError.c_str();}
+bool Renderer::safeMode() const{return impl_ && impl_->safeMode;}
 
 
 extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_graphicsFrameRuntime
