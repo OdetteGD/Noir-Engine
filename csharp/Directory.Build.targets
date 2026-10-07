@@ -1,0 +1,12 @@
+<Project>
+  <PropertyGroup>
+    <NoirEngineApi>true</NoirEngineApi>
+    <NoirEngineApiVersion>1.0</NoirEngineApiVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Update="**/*.cs" Visible="true" />
+  </ItemGroup>
+  <Target Name="NoirApiSummary" BeforeTargets="CoreCompile" Condition="'$(NoirApiSummary)' == 'true'">
+    <Message Importance="High" Text="Noir C# API $(NoirEngineApiVersion): $(TargetFramework) / C# $(LangVersion)" />
+  </Target>
+</Project>
