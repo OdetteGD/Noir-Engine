@@ -63,6 +63,8 @@ jobs:
           test -f app/src/main/cpp/noir_gles.cpp
           test -f app/src/main/cpp/noir_world_environment.cpp
           test -f app/src/main/java/com/noir/game/engine/NoirScriptIdeView.java
+          test -f app/src/main/java/com/noir/game/engine/NoirViewport.java
+          test -f app/src/main/java/com/noir/game/engine/NoirVulkanSurface.java
           test -f app/src/main/java/com/noir/game/engine/NoirProjectWorkspace.java
           test -f app/src/main/java/com/noir/game/engine/MainActivity.java
           grep -q 'ensureCSharpLayout' app/src/main/java/com/noir/game/engine/NoirProjectWorkspace.java
@@ -73,6 +75,8 @@ jobs:
           grep -q 'worldEnvironmentGlesShader' app/src/main/java/com/noir/game/engine/NoirNative.java
           grep -q 'vulkanAttachSurface' app/src/main/java/com/noir/game/engine/NoirNative.java
           grep -q 'csharp/Noir.Game' app/src/main/java/com/noir/game/engine/NoirProjectWorkspace.java
+          grep -q 'shader_type' app/src/main/java/com/noir/game/engine/NoirScriptIdeView.java
+          ! grep -n '\\n[[:space:]]*VkImage' app/src/main/cpp/noir_vulkan.cpp
           echo "Project-open recovery, C# layout, script IDE, network permissions, GLES/Vulkan, and native environment sources verified."
 
       - name: Build Debug APK
