@@ -1,0 +1,5 @@
+#include <jni.h>
+#include <algorithm>
+struct Layout{float top,tab,bottom,left,right,vl,vr;};
+static Layout calculate(float w,float h,float d){bool compact=w<700.0f*d;Layout x{};x.top=(compact?52.0f:58.0f)*d;x.tab=(compact?42.0f:48.0f)*d;x.bottom=(compact?28.0f:30.0f)*d;if(compact){x.left=x.right=0;x.vl=0;x.vr=w;}else{x.left=std::max(280.0f*d,std::min(350.0f*d,w*0.255f));x.right=std::max(285.0f*d,std::min(360.0f*d,w*0.26f));x.vl=x.left;x.vr=w-x.right;}if(x.vr-x.vl<220.0f*d){x.vl=0;x.vr=w;}return x;}
+extern "C" JNIEXPORT jfloatArray JNICALL Java_com_noir_game_engine_NoirNative_editorLayout(JNIEnv* e,jclass,jfloat w,jfloat h,jfloat d){Layout x=calculate(std::max(1.0f,w),std::max(1.0f,h),std::max(0.5f,d));float a[]={x.top,x.tab,x.bottom,x.left,x.right,x.vl,x.vr};jfloatArray r=e->NewFloatArray(7);if(r)e->SetFloatArrayRegion(r,0,7,a);return r;}
