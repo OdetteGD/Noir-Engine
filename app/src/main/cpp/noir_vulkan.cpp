@@ -58,8 +58,12 @@ struct Runtime {
     VkInstance instance=VK_NULL_HANDLE;VkPhysicalDevice physical=VK_NULL_HANDLE;VkDevice device=VK_NULL_HANDLE;
     VkQueue graphics=VK_NULL_HANDLE;uint32_t family=UINT32_MAX;VkSurfaceKHR surface=VK_NULL_HANDLE;
     VkSwapchainKHR swapchain=VK_NULL_HANDLE;VkFormat format=VK_FORMAT_B8G8R8A8_SRGB;VkExtent2D extent{1,1};
-    VkRenderPass renderPass=VK_NULL_HANDLE;VkCommandPool commandPool=VK_NULL_HANDLE;VkCommandBuffer cmd=VK_NULL_HANDLE;
-    VkSemaphore imageAvailable=VK_NULL_HANDLE,renderFinished=VK_NULL_HANDLE;VkFence fence=VK_NULL_HANDLE;
+    VkRenderPass renderPass=VK_NULL_HANDLE;VkCommandPool commandPool=VK_NULL_HANDLE;
+    static constexpr uint32_t kFramesInFlight=2;
+    VkCommandBuffer cmds[kFramesInFlight]{};
+    VkSemaphore imageAvailable[kFramesInFlight]{},renderFinished[kFramesInFlight]{};
+    VkFence fences[kFramesInFlight]{};
+    uint32_t currentFrame=0;
     VkImage images[8]{};VkImageView views[8]{};VkFramebuffer framebuffers[8]{};uint32_t imageCount=0;
     VkImage depthImage=VK_NULL_HANDLE;VkDeviceMemory depthMemory=VK_NULL_HANDLE;VkImageView depthView=VK_NULL_HANDLE;VkFormat depthFormat=VK_FORMAT_D32_SFLOAT;
     VkShaderModule vert=VK_NULL_HANDLE,frag=VK_NULL_HANDLE;VkPipelineLayout pipelineLayout=VK_NULL_HANDLE;VkPipeline pipeline=VK_NULL_HANDLE;
@@ -102,9 +106,15 @@ static void destroySwap(){
     if(g.depthView)vkDestroyImageView(g.device,g.depthView,nullptr);if(g.depthImage)vkDestroyImage(g.device,g.depthImage,nullptr);if(g.depthMemory)vkFreeMemory(g.device,g.depthMemory,nullptr);
     g.depthView=VK_NULL_HANDLE;g.depthImage=VK_NULL_HANDLE;g.depthMemory=VK_NULL_HANDLE;
     if(g.renderPass)vkDestroyRenderPass(g.device,g.renderPass,nullptr);g.renderPass=VK_NULL_HANDLE;
-    if(g.commandPool)vkDestroyCommandPool(g.device,g.commandPool,nullptr);g.commandPool=VK_NULL_HANDLE;g.cmd=VK_NULL_HANDLE;
-    if(g.imageAvailable)vkDestroySemaphore(g.device,g.imageAvailable,nullptr);if(g.renderFinished)vkDestroySemaphore(g.device,g.renderFinished,nullptr);if(g.fence)vkDestroyFence(g.device,g.fence,nullptr);
-    g.imageAvailable=g.renderFinished=VK_NULL_HANDLE;g.fence=VK_NULL_HANDLE;
+    if(g.commandPool)vkDestroyCommandPool(g.device,g.commandPool,nullptr);
+    g.commandPool=VK_NULL_HANDLE;
+    for(uint32_t i=0;i<Runtime::kFramesInFlight;i++){
+        g.cmds[i]=VK_NULL_HANDLE;
+        g.imageAvailable[i]=VK_NULL_HANDLE;
+        g.renderFinished[i]=VK_NULL_HANDLE;
+        g.fences[i]=VK_NULL_HANDLE;
+    }
+    g.currentFrame=0;
     if(g.swapchain)vkDestroySwapchainKHR(g.device,g.swapchain,nullptr);g.swapchain=VK_NULL_HANDLE;
 }
 static void reset(){
@@ -118,25 +128,97 @@ static void reset(){
 }
 static bool makeInstance(){
     if(!instanceExt(VK_KHR_SURFACE_EXTENSION_NAME)||!instanceExt("VK_KHR_android_surface"))return false;
-    VkApplicationInfo ai{VK_STRUCTURE_TYPE_APPLICATION_INFO};ai.pApplicationName="Noir";ai.applicationVersion=1;ai.pEngineName="NoirGFX";ai.engineVersion=1;ai.apiVersion=VK_API_VERSION_1_0;
+    uint32_t api=VK_API_VERSION_1_0;
+    if(vkEnumerateInstanceVersion){
+        if(vkEnumerateInstanceVersion(&api)!=VK_SUCCESS)api=VK_API_VERSION_1_0;
+    }
+    if(VK_API_VERSION_MAJOR(api)<1 || (VK_API_VERSION_MAJOR(api)==1 && VK_API_VERSION_MINOR(api)<1)){
+        NOIR_VK_LOG("Vulkan 1.1+ required by Noir mobile renderer");
+        return false;
+    }
+    const uint32_t requestedApi=VK_MAKE_API_VERSION(0,1,1,0);
+    VkApplicationInfo ai{VK_STRUCTURE_TYPE_APPLICATION_INFO};
+    ai.pApplicationName="Noir";
+    ai.applicationVersion=1;
+    ai.pEngineName="NoirGFX";
+    ai.engineVersion=1;
+    ai.apiVersion=std::min(api,requestedApi);
     const char* exts[]={VK_KHR_SURFACE_EXTENSION_NAME,"VK_KHR_android_surface"};
-    VkInstanceCreateInfo ci{VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};ci.pApplicationInfo=&ai;ci.enabledExtensionCount=2;ci.ppEnabledExtensionNames=exts;
+    VkInstanceCreateInfo ci{VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
+    ci.pApplicationInfo=&ai;
+    ci.enabledExtensionCount=2;
+    ci.ppEnabledExtensionNames=exts;
     return vkCreateInstance(&ci,nullptr,&g.instance)==VK_SUCCESS;
 }
 static bool makeDevice(){
-    uint32_t c=0;if(vkEnumeratePhysicalDevices(g.instance,&c,nullptr)!=VK_SUCCESS||!c)return false;std::vector<VkPhysicalDevice>d(c);vkEnumeratePhysicalDevices(g.instance,&c,d.data());
+    uint32_t c=0;
+    if(vkEnumeratePhysicalDevices(g.instance,&c,nullptr)!=VK_SUCCESS||!c)return false;
+    std::vector<VkPhysicalDevice>d(c);
+    if(vkEnumeratePhysicalDevices(g.instance,&c,d.data())!=VK_SUCCESS)return false;
+
+    VkPhysicalDevice best=VK_NULL_HANDLE;
+    uint32_t bestFamily=UINT32_MAX;
+    int bestScore=-1;
+
     for(VkPhysicalDevice pd:d){
-        uint32_t qc=0;vkGetPhysicalDeviceQueueFamilyProperties(pd,&qc,nullptr);std::vector<VkQueueFamilyProperties>q(qc);vkGetPhysicalDeviceQueueFamilyProperties(pd,&qc,q.data());
-        for(uint32_t i=0;i<qc;i++){VkBool32 present=VK_FALSE;vkGetPhysicalDeviceSurfaceSupportKHR(pd,i,g.surface,&present);if((q[i].queueFlags&VK_QUEUE_GRAPHICS_BIT)&&present){
-            g.physical=pd;g.family=i;VkPhysicalDeviceProperties p{};vkGetPhysicalDeviceProperties(pd,&p);
-            if(!deviceExt(pd,VK_KHR_SWAPCHAIN_EXTENSION_NAME))return false;
-            float pr=1.0f;VkDeviceQueueCreateInfo qi{VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};qi.queueFamilyIndex=i;qi.queueCount=1;qi.pQueuePriorities=&pr;
-            const char* exts[]={VK_KHR_SWAPCHAIN_EXTENSION_NAME};VkPhysicalDeviceFeatures f{};
-            VkDeviceCreateInfo di{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};di.queueCreateInfoCount=1;di.pQueueCreateInfos=&qi;di.enabledExtensionCount=1;di.ppEnabledExtensionNames=exts;di.pEnabledFeatures=&f;
-            if(vkCreateDevice(pd,&di,nullptr,&g.device)!=VK_SUCCESS)return false;vkGetDeviceQueue(g.device,i,0,&g.graphics);return true;
-        }}
+        if(!deviceExt(pd,VK_KHR_SWAPCHAIN_EXTENSION_NAME))continue;
+        VkPhysicalDeviceProperties props{};
+        vkGetPhysicalDeviceProperties(pd,&props);
+        VkPhysicalDeviceFeatures features{};
+        vkGetPhysicalDeviceFeatures(pd,&features);
+
+        uint32_t qc=0;
+        vkGetPhysicalDeviceQueueFamilyProperties(pd,&qc,nullptr);
+        std::vector<VkQueueFamilyProperties>q(qc);
+        vkGetPhysicalDeviceQueueFamilyProperties(pd,&qc,q.data());
+
+        for(uint32_t i=0;i<qc;i++){
+            VkBool32 present=VK_FALSE;
+            vkGetPhysicalDeviceSurfaceSupportKHR(pd,i,g.surface,&present);
+            if((q[i].queueFlags&VK_QUEUE_GRAPHICS_BIT)==0 || !present)continue;
+
+            int score=0;
+            switch(props.deviceType){
+                case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU: score+=4000; break;
+                case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU: score+=3000; break;
+                case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU: score+=1800; break;
+                case VK_PHYSICAL_DEVICE_TYPE_CPU: score+=500; break;
+                default: break;
+            }
+            score+=static_cast<int>(std::min<uint32_t>(props.limits.maxImageDimension2D,8192u)/256u);
+            if(features.samplerAnisotropy)score+=250;
+            if(features.fillModeNonSolid)score+=25;
+            if(score>bestScore){bestScore=score;best=pd;bestFamily=i;}
+        }
     }
-    return false;
+
+    if(best==VK_NULL_HANDLE||bestFamily==UINT32_MAX)return false;
+
+    g.physical=best;
+    g.family=bestFamily;
+
+    float pr=1.0f;
+    VkDeviceQueueCreateInfo qi{VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
+    qi.queueFamilyIndex=bestFamily;
+    qi.queueCount=1;
+    qi.pQueuePriorities=&pr;
+
+    const char* exts[]={VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    VkPhysicalDeviceFeatures f{};
+    VkPhysicalDeviceFeatures supported{};
+    vkGetPhysicalDeviceFeatures(best,&supported);
+    f.samplerAnisotropy=supported.samplerAnisotropy?VK_TRUE:VK_FALSE;
+
+    VkDeviceCreateInfo di{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
+    di.queueCreateInfoCount=1;
+    di.pQueueCreateInfos=&qi;
+    di.enabledExtensionCount=1;
+    di.ppEnabledExtensionNames=exts;
+    di.pEnabledFeatures=&f;
+
+    if(vkCreateDevice(best,&di,nullptr,&g.device)!=VK_SUCCESS)return false;
+    vkGetDeviceQueue(g.device,bestFamily,0,&g.graphics);
+    return g.graphics!=VK_NULL_HANDLE;
 }
 static bool makeSwap(){
     VkSurfaceCapabilitiesKHR caps{};if(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(g.physical,g.surface,&caps)!=VK_SUCCESS)return false;
@@ -144,7 +226,26 @@ static bool makeSwap(){
     VkSurfaceFormatKHR fmt=fs[0];for(auto&f:fs)if(f.format==VK_FORMAT_B8G8R8A8_SRGB&&f.colorSpace==VK_COLOR_SPACE_SRGB_NONLINEAR_KHR){fmt=f;break;}
     VkExtent2D ex=caps.currentExtent;if(ex.width==0xffffffffu){ex.width=std::max(caps.minImageExtent.width,std::min(caps.maxImageExtent.width,(uint32_t)ANativeWindow_getWidth(g.window)));ex.height=std::max(caps.minImageExtent.height,std::min(caps.maxImageExtent.height,(uint32_t)ANativeWindow_getHeight(g.window)));}
     uint32_t count=caps.minImageCount+1;if(caps.maxImageCount&&count>caps.maxImageCount)count=caps.maxImageCount;
-    VkSwapchainCreateInfoKHR si{VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};si.surface=g.surface;si.minImageCount=count;si.imageFormat=fmt.format;si.imageColorSpace=fmt.colorSpace;si.imageExtent=ex;si.imageArrayLayers=1;si.imageUsage=VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;si.imageSharingMode=VK_SHARING_MODE_EXCLUSIVE;si.preTransform=caps.currentTransform;si.compositeAlpha=VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;si.presentMode=VK_PRESENT_MODE_FIFO_KHR;si.clipped=VK_TRUE;
+    uint32_t pmc=0;
+    vkGetPhysicalDeviceSurfacePresentModesKHR(g.physical,g.surface,&pmc,nullptr);
+    std::vector<VkPresentModeKHR> pms(pmc);
+    if(pmc)vkGetPhysicalDeviceSurfacePresentModesKHR(g.physical,g.surface,&pmc,pms.data());
+    VkPresentModeKHR present=VK_PRESENT_MODE_FIFO_KHR;
+    for(auto p:pms)if(p==VK_PRESENT_MODE_MAILBOX_KHR){present=p;break;}
+
+    VkSwapchainCreateInfoKHR si{VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
+    si.surface=g.surface;
+    si.minImageCount=count;
+    si.imageFormat=fmt.format;
+    si.imageColorSpace=fmt.colorSpace;
+    si.imageExtent=ex;
+    si.imageArrayLayers=1;
+    si.imageUsage=VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    si.imageSharingMode=VK_SHARING_MODE_EXCLUSIVE;
+    si.preTransform=caps.currentTransform;
+    si.compositeAlpha=VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    si.presentMode=present;
+    si.clipped=VK_TRUE;
     if(vkCreateSwapchainKHR(g.device,&si,nullptr,&g.swapchain)!=VK_SUCCESS)return false;
     g.format=fmt.format;g.extent=ex;
     uint32_t countImages=0;
@@ -215,10 +316,27 @@ static bool makePipeline(){
     return vkCreateGraphicsPipelines(g.device,VK_NULL_HANDLE,1,&pi,nullptr,&g.pipeline)==VK_SUCCESS;
 }
 static bool makeFrameResources(){
-    VkCommandPoolCreateInfo cp{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};cp.flags=VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;cp.queueFamilyIndex=g.family;if(vkCreateCommandPool(g.device,&cp,nullptr,&g.commandPool)!=VK_SUCCESS)return false;
-    VkCommandBufferAllocateInfo ca{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};ca.commandPool=g.commandPool;ca.level=VK_COMMAND_BUFFER_LEVEL_PRIMARY;ca.commandBufferCount=1;if(vkAllocateCommandBuffers(g.device,&ca,&g.cmd)!=VK_SUCCESS)return false;
-    VkSemaphoreCreateInfo si{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};if(vkCreateSemaphore(g.device,&si,nullptr,&g.imageAvailable)!=VK_SUCCESS||vkCreateSemaphore(g.device,&si,nullptr,&g.renderFinished)!=VK_SUCCESS)return false;
-    VkFenceCreateInfo fi{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};fi.flags=VK_FENCE_CREATE_SIGNALED_BIT;return vkCreateFence(g.device,&fi,nullptr,&g.fence)==VK_SUCCESS;
+    VkCommandPoolCreateInfo cp{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
+    cp.flags=VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    cp.queueFamilyIndex=g.family;
+    if(vkCreateCommandPool(g.device,&cp,nullptr,&g.commandPool)!=VK_SUCCESS)return false;
+
+    VkCommandBufferAllocateInfo ca{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+    ca.commandPool=g.commandPool;
+    ca.level=VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    ca.commandBufferCount=Runtime::kFramesInFlight;
+    if(vkAllocateCommandBuffers(g.device,&ca,g.cmds)!=VK_SUCCESS)return false;
+
+    VkSemaphoreCreateInfo si{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+    VkFenceCreateInfo fi{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+    fi.flags=VK_FENCE_CREATE_SIGNALED_BIT;
+    for(uint32_t i=0;i<Runtime::kFramesInFlight;i++){
+        if(vkCreateSemaphore(g.device,&si,nullptr,&g.imageAvailable[i])!=VK_SUCCESS)return false;
+        if(vkCreateSemaphore(g.device,&si,nullptr,&g.renderFinished[i])!=VK_SUCCESS)return false;
+        if(vkCreateFence(g.device,&fi,nullptr,&g.fences[i])!=VK_SUCCESS)return false;
+    }
+    g.currentFrame=0;
+    return true;
 }
 static Vec3 skyColor(){
     switch(g.skyMode){
@@ -324,17 +442,20 @@ static Mat4 viewProj(){
                lookAt(cam,{g.targetX,g.targetY,g.targetZ},{0,1,0}));
 }
 static Vec3 cameraPos(){return currentCamera();}
-static bool recordAndDraw(uint32_t image){
-    vkResetCommandBuffer(g.cmd,0);VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};if(vkBeginCommandBuffer(g.cmd,&bi)!=VK_SUCCESS)return false;
+static bool recordAndDraw(uint32_t image,uint32_t frameIndex){
+    VkCommandBuffer cmd=g.cmds[frameIndex];
+    vkResetCommandBuffer(cmd,0);
+    VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+    if(vkBeginCommandBuffer(cmd,&bi)!=VK_SUCCESS)return false;
     Vec3 sky=skyColor();VkClearValue clear[2]{};clear[0].color.float32[0]=std::min(1.0f,sky.x*g.brightness);clear[0].color.float32[1]=std::min(1.0f,sky.y*g.brightness);clear[0].color.float32[2]=std::min(1.0f,sky.z*g.brightness);clear[0].color.float32[3]=1;clear[1].depthStencil.depth=1;
     VkRenderPassBeginInfo rp{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};rp.renderPass=g.renderPass;rp.framebuffer=g.framebuffers[image];rp.renderArea.extent=g.extent;rp.clearValueCount=2;rp.pClearValues=clear;
-    vkCmdBeginRenderPass(g.cmd,&rp,VK_SUBPASS_CONTENTS_INLINE);
-    VkViewport vp{0,0,float(g.extent.width),float(g.extent.height),0,1};VkRect2D sc{{0,0},g.extent};vkCmdSetViewport(g.cmd,0,1,&vp);vkCmdSetScissor(g.cmd,0,1,&sc);
-    vkCmdBindPipeline(g.cmd,VK_PIPELINE_BIND_POINT_GRAPHICS,g.pipeline);VkDeviceSize off=0;vkCmdBindVertexBuffers(g.cmd,0,1,&g.vertexBuffer,&off);
+    vkCmdBeginRenderPass(cmd,&rp,VK_SUBPASS_CONTENTS_INLINE);
+    VkViewport vp{0,0,float(g.extent.width),float(g.extent.height),0,1};VkRect2D sc{{0,0},g.extent};vkCmdSetViewport(cmd,0,1,&vp);vkCmdSetScissor(cmd,0,1,&sc);
+    vkCmdBindPipeline(cmd,VK_PIPELINE_BIND_POINT_GRAPHICS,g.pipeline);VkDeviceSize off=0;vkCmdBindVertexBuffers(cmd,0,1,&g.vertexBuffer,&off);
     FramePC pc{};Mat4 mvp=viewProj();std::memcpy(pc.vp,mvp.m,sizeof(pc.vp));Vec3 cam=cameraPos();pc.cameraExposure[0]=cam.x;pc.cameraExposure[1]=cam.y;pc.cameraExposure[2]=cam.z;pc.cameraExposure[3]=g.exposure;pc.sunBrightness[0]=g.sun.x;pc.sunBrightness[1]=g.sun.y;pc.sunBrightness[2]=g.sun.z;pc.sunBrightness[3]=g.brightness;pc.environment[0]=float(g.skyMode);pc.environment[1]=g.brightness;pc.environment[2]=g.fog;pc.environment[3]=g.quality;
-    vkCmdPushConstants(g.cmd,g.pipelineLayout,VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT,0,sizeof(pc),&pc);
-    if(g.vertexCount)vkCmdDraw(g.cmd,g.vertexCount,1,0,0);
-    vkCmdEndRenderPass(g.cmd);return vkEndCommandBuffer(g.cmd)==VK_SUCCESS;
+    vkCmdPushConstants(cmd,g.pipelineLayout,VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT,0,sizeof(pc),&pc);
+    if(g.vertexCount)vkCmdDraw(cmd,g.vertexCount,1,0,0);
+    vkCmdEndRenderPass(cmd);return vkEndCommandBuffer(cmd)==VK_SUCCESS;
 }
 
 } // namespace
@@ -399,11 +520,55 @@ extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanSet
 }
 extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanSetEnvironment(JNIEnv*,jclass,jint mode,jfloat exposure,jfloat brightness,jfloat fog,jfloat sx,jfloat sy,jfloat sz){g.skyMode=mode;g.exposure=std::max(0.05f,float(exposure));g.brightness=std::max(0.0f,float(brightness));g.fog=std::max(0.0f,float(fog));g.sun=normalize({sx,sy,sz});}
 extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanSetQuality(JNIEnv*,jclass,jint tier){g.quality=std::max(1.0f,std::min(4.0f,float(tier)));}
+static bool recreateSwapchain(){
+    if(!g.initialized||!g.device||!g.surface)return false;
+    int w=ANativeWindow_getWidth(g.window),h=ANativeWindow_getHeight(g.window);
+    if(w<=0||h<=0)return true;
+    vkDeviceWaitIdle(g.device);
+    destroySwap();
+    return makeSwap() && makeDepth() && makeRenderPass() && makeFramebuffers() && makePipeline() && makeFrameResources() && (rebuildVertices(),true);
+}
+
 extern "C" JNIEXPORT jboolean JNICALL Java_com_noir_game_engine_NoirNative_vulkanDrawFrame(JNIEnv*,jclass){
-    if(!g.initialized)return JNI_FALSE;if(vkWaitForFences(g.device,1,&g.fence,VK_TRUE,1000000000ull)!=VK_SUCCESS)return JNI_FALSE;
-    uint32_t image=0;VkResult ar=vkAcquireNextImageKHR(g.device,g.swapchain,1000000000ull,g.imageAvailable,VK_NULL_HANDLE,&image);if(ar!=VK_SUCCESS&&ar!=VK_SUBOPTIMAL_KHR)return JNI_FALSE;
-    vkResetFences(g.device,1,&g.fence);if(!recordAndDraw(image))return JNI_FALSE;
-    VkPipelineStageFlags stage=VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;VkSubmitInfo si{VK_STRUCTURE_TYPE_SUBMIT_INFO};si.waitSemaphoreCount=1;si.pWaitSemaphores=&g.imageAvailable;si.pWaitDstStageMask=&stage;si.commandBufferCount=1;si.pCommandBuffers=&g.cmd;si.signalSemaphoreCount=1;si.pSignalSemaphores=&g.renderFinished;if(vkQueueSubmit(g.graphics,1,&si,g.fence)!=VK_SUCCESS)return JNI_FALSE;
-    VkPresentInfoKHR pi{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};pi.waitSemaphoreCount=1;pi.pWaitSemaphores=&g.renderFinished;pi.swapchainCount=1;pi.pSwapchains=&g.swapchain;pi.pImageIndices=&image;VkResult pr=vkQueuePresentKHR(g.graphics,&pi);return(pr==VK_SUCCESS||pr==VK_SUBOPTIMAL_KHR)?JNI_TRUE:JNI_FALSE;
+    if(!g.initialized||!g.swapchain)return JNI_FALSE;
+    const uint32_t frame=g.currentFrame%Runtime::kFramesInFlight;
+    if(vkWaitForFences(g.device,1,&g.fences[frame],VK_TRUE,1000000000ull)!=VK_SUCCESS)return JNI_FALSE;
+
+    uint32_t image=0;
+    VkResult ar=vkAcquireNextImageKHR(g.device,g.swapchain,1000000000ull,g.imageAvailable[frame],VK_NULL_HANDLE,&image);
+    if(ar==VK_ERROR_OUT_OF_DATE_KHR){
+        if(!recreateSwapchain())return JNI_FALSE;
+        return JNI_TRUE;
+    }
+    if(ar!=VK_SUCCESS&&ar!=VK_SUBOPTIMAL_KHR)return JNI_FALSE;
+
+    vkResetFences(g.device,1,&g.fences[frame]);
+    if(!recordAndDraw(image,frame))return JNI_FALSE;
+
+    VkPipelineStageFlags stage=VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    VkSubmitInfo si{VK_STRUCTURE_TYPE_SUBMIT_INFO};
+    si.waitSemaphoreCount=1;
+    si.pWaitSemaphores=&g.imageAvailable[frame];
+    si.pWaitDstStageMask=&stage;
+    si.commandBufferCount=1;
+    si.pCommandBuffers=&g.cmds[frame];
+    si.signalSemaphoreCount=1;
+    si.pSignalSemaphores=&g.renderFinished[frame];
+    if(vkQueueSubmit(g.graphics,1,&si,g.fences[frame])!=VK_SUCCESS)return JNI_FALSE;
+
+    VkPresentInfoKHR pi{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
+    pi.waitSemaphoreCount=1;
+    pi.pWaitSemaphores=&g.renderFinished[frame];
+    pi.swapchainCount=1;
+    pi.pSwapchains=&g.swapchain;
+    pi.pImageIndices=&image;
+    VkResult pr=vkQueuePresentKHR(g.graphics,&pi);
+
+    g.currentFrame=(frame+1)%Runtime::kFramesInFlight;
+    if(pr==VK_ERROR_OUT_OF_DATE_KHR||pr==VK_SUBOPTIMAL_KHR){
+        if(!recreateSwapchain())return JNI_FALSE;
+        return JNI_TRUE;
+    }
+    return pr==VK_SUCCESS?JNI_TRUE:JNI_FALSE;
 }
 extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanDetachSurface(JNIEnv*,jclass){reset();}
