@@ -185,7 +185,7 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
 
     private void deleteProgramSafe(int id){if(id!=0)try{GLES30.glDeleteProgram(id);}catch(Throwable ignored){}}
 
-    public Camera camera(){return editorCamera;}
+    public Camera camera(){if(mode==Mode.EDITOR)editorCamera.updateOrbit();return editorCamera;}
     public RuntimeCamera runtimeCamera(){return runtimeCamera;}
     public Quality quality(){return quality;}
     public WorldEnvironmentSettings environment(){return environment;}
