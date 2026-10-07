@@ -27,7 +27,7 @@ public final class MainActivity extends Activity {
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
-        String projectPath=getIntent().getStringExtra("project_path");
+        String projectPath=normalizeProjectRoot(getIntent().getStringExtra("project_path"));
         try {
             NoirCSharpRuntime.ensureInstalled(this);
         } catch(Throwable ignored) {
@@ -95,6 +95,20 @@ public final class MainActivity extends Activity {
             return;
         }
         super.onBackPressed();
+    }
+
+    private String normalizeProjectRoot(String raw){
+        if(raw==null||raw.trim().isEmpty())return raw;
+        try{
+            File cur=new File(raw).getCanonicalFile();
+            if(cur.isFile())cur=cur.getParentFile();
+            for(int i=0;i<8&&cur!=null;i++){
+                if(new File(cur,"project.game").isFile() && new File(cur,"scenes/Main.game").isFile())
+                    return cur.getAbsolutePath();
+                cur=cur.getParentFile();
+            }
+        }catch(Throwable ignored){}
+        return raw;
     }
 
     private NoirScene loadProjectScene(String projectPath) {
