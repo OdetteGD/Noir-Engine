@@ -83,11 +83,38 @@ public final class NoirProjectWorkspace {
         List<File> result = new ArrayList<>();
         if (files != null) {
             Arrays.sort(files, Comparator.comparing(File::getName, String.CASE_INSENSITIVE_ORDER));
-            for (File f : files) if (new File(f, "project.game").isFile()) result.add(f);
+            for (File f : files) if (new File(f, "project.game").isFile()) { ensureCSharpLayout(f); result.add(f); }
         }
         return result;
     }
 
+    /** Migrates older projects so C# tooling is present after reopening. */
+    public void ensureCSharpLayout(File project) {
+        if (project == null) return;
+        File csharpDir = new File(project, "csharp");
+        File gameDir = new File(csharpDir, "Noir.Game");
+        gameDir.mkdirs();
+        File csproj = new File(gameDir, "Noir.Game.csproj");
+        File script = new File(gameDir, "PlayerController.cs");
+        try {
+            if (!csproj.isFile()) write(csproj,
+                    "<Project Sdk=\"Microsoft.NET.Sdk\">\n" +
+                    "  <PropertyGroup>\n" +
+                    "    <TargetFramework>net10.0-android36.1</TargetFramework>\n" +
+                    "    <Nullable>enable</Nullable>\n" +
+                    "    <ImplicitUsings>enable</ImplicitUsings>\n" +
+                    "    <LangVersion>14.0</LangVersion>\n" +
+                    "  </PropertyGroup>\n" +
+                    "</Project>\n");
+            if (!script.isFile()) write(script,
+                    "using Noir;\n\n" +
+                    "public sealed class PlayerController : Character3D {\n" +
+                    "    [Export] public float Speed { get; set; } = 5f;\n" +
+                    "    public override void _PhysicsProcess(float delta) { MoveAndSlide(); }\n" +
+                    "}\n");
+            if (!new File(csharpDir, "README.md").isFile()) write(new File(csharpDir, "README.md"), "# Noir C# Project\n\nC# scripts live in Noir.Game/.\n");
+        } catch (IOException ignored) { }
+    }
     public File projectFile(File project, String relative) {
         File target = new File(project, relative);
         try {
