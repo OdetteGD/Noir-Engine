@@ -1063,7 +1063,7 @@ public final class NoirEditorView extends android.view.View {
 
     private void checkCSharpSdk(){
         if(state.projectRoot==null){status="No project";return;}
-        File project=new File(state.projectRoot,"csharp/Noir.Game/Noir.Game.csproj");
+        File project=new File(state.projectRoot,"csharp/Noir.GameTemplate/Noir.GameTemplate.csproj");
         if(!project.isFile()){
             status="C# project not created";
             state.log(status);
