@@ -194,12 +194,34 @@ uniform vec3 uTop;
 uniform vec3 uHorizon;
 uniform vec3 uSunDir;
 uniform float uPitch;
+uniform float uSkyMode;
 out vec4 frag;
 void main(){
-    float h=pow(clamp(uv.y,0.0,1.0),0.62);
-    vec3 c=mix(uHorizon,uTop,h);
-    float sun=pow(max(dot(normalize(vec3(uv.x*1.7-0.85,(uv.y-.45)*1.3,1.0)),normalize(-uSunDir)),0.0),180.0);
-    c+=vec3(1.0,0.68,0.38)*sun*0.42;
+    vec2 p=uv*2.0-1.0;
+    float h=clamp(uv.y,0.0,1.0);
+    vec3 ray=normalize(vec3(p.x*1.35,p.y,1.0));
+    vec3 sunDir=normalize(-uSunDir);
+    float sunDot=max(dot(ray,sunDir),0.0);
+    vec3 c=mix(uHorizon,uTop,pow(h,0.62));
+
+    // Physical mode: compact Rayleigh/Mie approximation tuned for mobile.
+    if(uSkyMode>0.5 && uSkyMode<1.5){
+        float rayleigh=pow(1.0-max(ray.y,0.0),1.65);
+        float mie=pow(sunDot,8.0);
+        float horizon=smoothstep(-0.20,0.55,ray.y);
+        vec3 scatter=vec3(0.24,0.38,0.68)*rayleigh+
+                      vec3(0.84,0.88,0.98)*(0.20+0.62*horizon)+
+                      vec3(1.0,0.46,0.18)*mie*0.55;
+        c=mix(scatter,c,0.28);
+    }else if(uSkyMode>2.5 && uSkyMode<3.5){
+        // ShaderSkyMaterial mode: stylized but physically lit by the same sun vector.
+        c=mix(c,vec3(0.07,0.12,0.24),smoothstep(0.0,0.9,1.0-h));
+        c+=vec3(0.55,0.30,0.16)*pow(sunDot,18.0);
+    }
+
+    float disc=pow(sunDot,160.0);
+    float halo=pow(sunDot,18.0)*0.18;
+    c+=vec3(1.0,0.70,0.38)*(disc+halo);
     frag=vec4(c,1.0);
 }
 )GLSL";
@@ -295,7 +317,8 @@ struct Renderer::Impl {
         environmentExposure=std::max(0.05f,exposure);
         skyBrightness=std::max(0.0f,brightness);
         fogDensity=std::max(0.0f,fog*12.0f);
-        sunDir=norm(sun);
+        float sunLen=dot(sun,sun);
+        sunDir=sunLen>0.0001f?norm(sun):Vec3{-0.38f,-0.82f,-0.32f};
     }
 
     static Vec3 colorForKind(int kind){
@@ -444,8 +467,13 @@ void Renderer::frame(float yawDeg,float pitchDeg,float distance,float tx,float t
     }
     glUniform3f(glGetUniformLocation(impl_->sky,"uTop"),skyTop.x,skyTop.y,skyTop.z);
     glUniform3f(glGetUniformLocation(impl_->sky,"uHorizon"),std::min(1.0f,skyHorizon.x),std::min(1.0f,skyHorizon.y),std::min(1.0f,skyHorizon.z));
+    skyTop=skyTop*impl_->skyBrightness;
+    skyHorizon=skyHorizon*impl_->skyBrightness;
+    glUniform3f(glGetUniformLocation(impl_->sky,"uTop"),std::min(1.0f,skyTop.x),std::min(1.0f,skyTop.y),std::min(1.0f,skyTop.z));
+    glUniform3f(glGetUniformLocation(impl_->sky,"uHorizon"),std::min(1.0f,skyHorizon.x),std::min(1.0f,skyHorizon.y),std::min(1.0f,skyHorizon.z));
     glUniform3f(glGetUniformLocation(impl_->sky,"uSunDir"),impl_->sunDir.x,impl_->sunDir.y,impl_->sunDir.z);
     glUniform1f(glGetUniformLocation(impl_->sky,"uPitch"),pitchDeg);
+    glUniform1f(glGetUniformLocation(impl_->sky,"uSkyMode"),float(impl_->skyMode));
     glDrawArrays(GL_TRIANGLES,0,3);
     glBindVertexArray(0);
 
