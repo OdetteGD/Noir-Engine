@@ -495,27 +495,6 @@ void Renderer::frame(float yawDeg,float pitchDeg,float distance,float tx,float t
     impl_->drawCubeRange(54*36,20*36,vp,{0.30f,0.20f,0.11f},0.78f,0.01f,cam,sun,skyColor);
     impl_->drawSceneInstances(vp,cam);
 
-    // A subtle editor-only grid is intentionally part of the graphics library,
-    // not a Java canvas paint, so it stays locked to the 3D world.
-    if(editorMode){
-        glUseProgram(impl_->pbr);
-        glBindVertexArray(impl_->vao);
-        glUniformMatrix4fv(glGetUniformLocation(impl_->pbr,"uVP"),1,GL_FALSE,vp.m);
-        glUniform3f(glGetUniformLocation(impl_->pbr,"uCamera"),cam.x,cam.y,cam.z);
-        glUniform3f(glGetUniformLocation(impl_->pbr,"uSunDir"),sun.x,sun.y,sun.z);
-        glUniform3f(glGetUniformLocation(impl_->pbr,"uSunColor"),0.55f,0.62f,0.78f);
-        glUniform3f(glGetUniformLocation(impl_->pbr,"uSkyColor"),0.22f,0.30f,0.46f);
-        glUniform3f(glGetUniformLocation(impl_->pbr,"uColor"),0.16f,0.22f,0.31f);
-        glUniform1f(glGetUniformLocation(impl_->pbr,"uRoughness"),0.92f);
-        glUniform1f(glGetUniformLocation(impl_->pbr,"uMetallic"),0.0f);
-        glUniform1f(glGetUniformLocation(impl_->pbr,"uExposure"),0.65f);
-        glUniform1f(glGetUniformLocation(impl_->pbr,"uFog"),0.0f);
-        Mat4 id=identity();glUniformMatrix4fv(glGetUniformLocation(impl_->pbr,"uModel"),1,GL_FALSE,id.m);
-        // No GL_LINES dependency on a second buffer: thin terrain tiles already
-        // provide visual grounding, while the Java gizmo remains interactive.
-        glBindVertexArray(0);
-    }
-
     glDisable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
 
