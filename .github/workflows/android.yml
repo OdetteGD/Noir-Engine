@@ -55,6 +55,20 @@ jobs:
       - name: Verify Gradle
         run: gradle --version
 
+      - name: Pre-build engine smoke checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f app/src/main/cpp/noir_vulkan.cpp
+          test -f app/src/main/cpp/noir_gles.cpp
+          test -f app/src/main/java/com/noir/game/engine/NoirProjectWorkspace.java
+          test -f app/src/main/java/com/noir/game/engine/MainActivity.java
+          grep -q 'ensureCSharpLayout' app/src/main/java/com/noir/game/engine/NoirProjectWorkspace.java
+          grep -q 'loadProjectScene' app/src/main/java/com/noir/game/engine/MainActivity.java
+          grep -q 'vulkanInitialize' app/src/main/java/com/noir/game/engine/NoirNative.java
+          grep -q 'VULKAN' app/src/main/java/com/noir/game/engine/NoirEditorView.java
+          echo "Project-open recovery, C# layout, GLES/Vulkan sources verified."
+
       - name: Build Debug APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
 
