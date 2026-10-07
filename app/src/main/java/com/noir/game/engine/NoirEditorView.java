@@ -309,7 +309,7 @@ public final class NoirEditorView extends android.view.View {
         for(int i=0;i<nodes.size()&&y<b-dp(100);i++){
             NoirNode n=nodes.get(i);
             if(n==state.selected)round(c,ACTIVE,l+dp(8),y-dp(20),r-dp(8),y+dp(9),dp(5));
-            text(c,icon(n.kind),l+dp(16+n.depth()*15),y,dp(11),n==state.selected?Color.WHITE:0xff7fa4e8);
+            drawNodeIcon(c,n.kind,l+dp(22+n.depth()*15),y-dp(5),dp(12),n==state.selected?ACTIVE:ACCENT);
             text(c,n.name,l+dp(37+n.depth()*15),y,dp(11),n==state.selected?Color.WHITE:TEXT);
             text(c,n.kind.name(),r-dp(84),y,dp(7),0xff64748a);
             y+=dp(29);
@@ -382,7 +382,7 @@ public final class NoirEditorView extends android.view.View {
             for(File f:fs){
                 if(y>b-dp(44))break;
                 round(c,f.isDirectory()?0xff17253a:0xff121a27,l+dp(12),y-dp(16),r-dp(12),y+dp(12),dp(5));
-                text(c,f.isDirectory()?"▸":"•",l+dp(20),y+dp(1),dp(11),f.isDirectory()?ACCENT:MUTED);
+                drawFileIcon(c,l+dp(26),y-dp(5),dp(11),f.isDirectory(),f.isDirectory()?ACCENT:MUTED);
                 text(c,f.getName(),l+dp(40),y+dp(1),dp(10),TEXT);
                 text(c,f.isDirectory()?"FOLDER":"FILE",r-dp(54),y+dp(1),dp(7),MUTED);
                 y+=dp(34);
@@ -1221,19 +1221,33 @@ public final class NoirEditorView extends android.view.View {
         text(c,fitLabel(s,Math.max(8,w-dp(20)),dp(9)),x+dp(10),y+dp(25),dp(9),TEXT);
     }
 
-    private String icon(NoirNode.Kind k){
-        switch(k){
-            case CAMERA3D:return "◉";
-            case LIGHT3D:return "✦";
-            case MESH3D:return "◇";
-            case CHARACTER3D:return "♙";
-            case PLAYER3D:return "◎";
-            case WORLD_ENVIRONMENT:return "☼";
-            case STATIC_BODY3D:return "▣";
-            case RIGID_BODY3D:return "◆";
-            case PARTICLES3D:return "✧";
-            default:return "□";
+    private void drawNodeIcon(Canvas c,NoirNode.Kind k,float cx,float cy,float size,int color){
+        p.setColor(color);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(Math.max(1f,dp(1.3f)));
+        if(k==NoirNode.Kind.CAMERA3D){
+            c.drawCircle(cx,cy,dp(4),p);c.drawLine(cx-dp(7),cy,cx-dp(4),cy,p);c.drawLine(cx+dp(4),cy,cx+dp(7),cy,p);
+        }else if(k==NoirNode.Kind.LIGHT3D){
+            for(int i=0;i<8;i++){double a=Math.PI*i/4;c.drawLine(cx+(float)Math.cos(a)*dp(3),cy+(float)Math.sin(a)*dp(3),cx+(float)Math.cos(a)*dp(7),cy+(float)Math.sin(a)*dp(7),p);}
+            c.drawCircle(cx,cy,dp(3),p);
+        }else if(k==NoirNode.Kind.MESH3D||k==NoirNode.Kind.TERRAIN3D||k==NoirNode.Kind.STATIC_BODY3D){
+            c.drawRect(cx-dp(5),cy-dp(5),cx+dp(5),cy+dp(5),p);
+            c.drawLine(cx-dp(5),cy,cx,cy-dp(5),p);c.drawLine(cx,cy-dp(5),cx+dp(5),cy,p);
+        }else if(k==NoirNode.Kind.FOLIAGE3D){
+            Path q=new Path();q.moveTo(cx,cy-dp(7));q.lineTo(cx-dp(6),cy+dp(1));q.lineTo(cx+dp(6),cy+dp(1));q.close();c.drawPath(q,p);
+            c.drawLine(cx,cy+dp(1),cx,cy+dp(7),p);
+        }else if(k==NoirNode.Kind.WORLD_ENVIRONMENT||k==NoirNode.Kind.SKY3D){
+            c.drawCircle(cx,cy,dp(6),p);c.drawLine(cx-dp(7),cy,cx+dp(7),cy,p);c.drawLine(cx,cy-dp(7),cx,cy+dp(7),p);
+        }else if(k==NoirNode.Kind.PLAYER3D||k==NoirNode.Kind.CHARACTER3D){
+            c.drawCircle(cx,cy-dp(3),dp(3),p);c.drawRoundRect(cx-dp(5),cy+0,cx+dp(5),cy+dp(7),dp(2),dp(2),p);
+        }else{
+            c.drawRect(cx-dp(5),cy-dp(5),cx+dp(5),cy+dp(5),p);
         }
+        p.setStyle(Paint.Style.FILL);
+    }
+    private void drawFileIcon(Canvas c,float cx,float cy,float size,boolean folder,int color){
+        p.setColor(color);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(Math.max(1f,dp(1.3f)));
+        if(folder){Path q=new Path();q.moveTo(cx-dp(6),cy-dp(4));q.lineTo(cx-dp(1),cy-dp(4));q.lineTo(cx+dp(1),cy-dp(2));q.lineTo(cx+dp(6),cy-dp(2));q.lineTo(cx+dp(6),cy+dp(5));q.lineTo(cx-dp(6),cy+dp(5));q.close();c.drawPath(q,p);}
+        else c.drawRect(cx-dp(5),cy-dp(6),cx+dp(5),cy+dp(6),p);
+        p.setStyle(Paint.Style.FILL);
     }
 
     private float distance(MotionEvent e){
