@@ -40,7 +40,7 @@ public final class GameFileParser {
                 else target.properties.put(key,val);
                 continue;
             }
-            r.diagnostics.add(new Diagnostic(ln,"WARN","unrecognized statement: "+line));
+            r.diagnostics.add(new Diagnostic(ln,"ERROR","unrecognized statement: "+line));
         }
         if(stack.size()!=1) r.diagnostics.add(new Diagnostic(lines.length,"ERROR","unclosed node block"));
         if(!sawScene) r.diagnostics.add(new Diagnostic(1,"WARN","no scene declaration; using document name"));
