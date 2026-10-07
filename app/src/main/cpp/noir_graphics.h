@@ -17,6 +17,7 @@ public:
     void frame(float yawDeg, float pitchDeg, float distance,
                float targetX, float targetY, float targetZ,
                bool editorMode);
+    void frameRuntime(float x,float y,float z,float yawDeg,float pitchDeg,bool editorMode);
     float frameTimeMs() const;
     const char* backendInfo() const;
 
