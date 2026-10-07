@@ -283,7 +283,9 @@ struct Renderer::Impl {
 };
 
 Renderer::Renderer():impl_(new Impl()){}
-Renderer::~Renderer(){delete impl_;impl_=nullptr;}
+Renderer::~Renderer(){ if(impl_){ impl_->destroy(); delete impl_; impl_=nullptr; } }
+
+void Renderer::shutdown(){ if(impl_) impl_->destroy(); }
 
 bool Renderer::initialize(){
     if(!impl_)return false;
