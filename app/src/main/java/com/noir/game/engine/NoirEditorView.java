@@ -896,8 +896,14 @@ public final class NoirEditorView extends android.view.View {
         NoirNode env=state.scene.root.find("WorldEnvironment");
         if(env!=null){
             env.properties.put("sky_mode",mode.name());
-            if(mode==WorldEnvironmentSettings.SkyMode.SHADER_SKY_MATERIAL)
-                env.properties.put("sky_material","World.shader");
+            String material = mode==WorldEnvironmentSettings.SkyMode.PHYSICAL_SKY ? "PhysicalSkyMaterial"
+                    : mode==WorldEnvironmentSettings.SkyMode.PROCEDURAL_SKY ? "ProceduralSkyMaterial"
+                    : "ShaderSkyMaterial";
+            env.properties.put("sky_material",material);
+            NoirNode sky = env.children.stream().filter(n -> n.kind == NoirNode.Kind.SKY3D).findFirst().orElse(null);
+            if(sky==null)sky=env.add(new NoirNode("Sky3D","Sky3D",NoirNode.Kind.SKY3D));
+            sky.properties.put("material",material);
+            sky.properties.put("shader",mode==WorldEnvironmentSettings.SkyMode.SHADER_SKY_MATERIAL?"World.shader":"");
         }
         renderer.applyScene(state.scene);
         status="Sky mode "+mode.name();
