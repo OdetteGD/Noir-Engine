@@ -185,8 +185,10 @@ public final class NoirEditorView extends android.view.View {
             nativeState="NO C++ LIB";
         }else{
             String err;
-            try{err=NoirNative.graphicsLastError();}catch(Throwable ignored){err="";}
-            nativeState=(err==null||err.isEmpty())?NoirNative.glesBackendInfo():"C++ RENDER ERR";
+            boolean safe=false;
+            try{err=NoirNative.graphicsLastError();safe=NoirNative.graphicsSafeMode();}catch(Throwable ignored){err="";}
+            if(safe) nativeState="C++ SAFE RENDER";
+            else nativeState=(err==null||err.isEmpty())?NoirNative.glesBackendInfo():"C++ RENDER ERR";
         }
         text(c,nativeState,w-dp(125),y+dp(19),dp(8),
                 nativeState.contains("ERR")?BAD:(NoirNative.isLoaded()?GOOD:WARN));
