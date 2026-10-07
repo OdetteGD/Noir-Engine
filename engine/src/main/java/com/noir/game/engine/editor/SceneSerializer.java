@@ -13,11 +13,11 @@ public final class SceneSerializer {
     public static String write(NoirScene scene){
         StringBuilder out=new StringBuilder(8192);
         out.append("scene ").append(scene.name==null?"Untitled":scene.name).append('\n');
-        for(NoirNode n:scene.root.children) writeNode(out,n,0);
+        for(NoirNode n:scene.root.children) writeNode(out,n,0,scene);
         return out.toString();
     }
 
-    private static void writeNode(StringBuilder out,NoirNode n,int depth){
+    private static void writeNode(StringBuilder out,NoirNode n,int depth,NoirScene scene){
         indent(out,depth).append("node ").append(safe(n.name)).append(" {\n");
         indent(out,depth+1).append("type = ").append(n.kind.name()).append('\n');
         indent(out,depth+1).append(String.format(Locale.US,"position = (%.5f, %.5f, %.5f)\n",n.px,n.py,n.pz));
@@ -36,7 +36,7 @@ public final class SceneSerializer {
             if(e.getKey()==null||e.getKey().equals("type")||e.getKey().equals("position")||e.getKey().equals("rotation")||e.getKey().equals("scale"))continue;
             indent(out,depth+1).append(e.getKey()).append(" = ").append(e.getValue()==null?"":e.getValue()).append('\n');
         }
-        for(NoirNode child:n.children)writeNode(out,child,depth+1);
+        for(NoirNode child:n.children)writeNode(out,child,depth+1,scene);
         indent(out,depth).append("}\n");
     }
 
