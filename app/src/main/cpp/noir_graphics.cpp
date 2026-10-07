@@ -370,7 +370,7 @@ struct Renderer::Impl {
         glEnableVertexAttribArray(0);glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,sizeof(Vertex),(void*)0);
         glEnableVertexAttribArray(1);glVertexAttribPointer(1,3,GL_FLOAT,GL_FALSE,sizeof(Vertex),(void*)(3*sizeof(float)));
         glBindVertexArray(0);
-        std::vector<Vertex> shapes[3];
+        std::vector<Vertex> shapes[5];
         addCube(shapes[0],0,0,0,1,1,1);
         addCone(shapes[1],1.0f,2.0f,12);
         addRock(shapes[2]);
