@@ -20,6 +20,7 @@ public final class MainActivity extends Activity {
     private NoirRenderer renderer;
     private NoirEditorView editorUi;
     private View surface;
+    private FrameLayout rootContainer;
 
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
@@ -59,6 +60,7 @@ public final class MainActivity extends Activity {
             editorUi=new NoirEditorView(this,editor,renderer,(NoirViewport)surface);
 
             FrameLayout root=new FrameLayout(this);
+            rootContainer=root;
             root.setBackgroundColor(NoirTheme.color("background",Color.rgb(246,243,236)));
             root.addView(surface,new FrameLayout.LayoutParams(-1,-1));
             root.addView(editorUi,new FrameLayout.LayoutParams(-1,-1));
@@ -66,6 +68,36 @@ public final class MainActivity extends Activity {
         } catch(Throwable openError) {
             showOpenRecovery(projectPath,openError);
         }
+    }
+
+    public void switchGraphicsApi(int index){
+        final int api=Math.max(0,Math.min(1,index));
+        final boolean useVulkan=api==1;
+        if(useVulkan && !NoirGraphicsBackend.vulkanAvailable()){
+            android.widget.Toast.makeText(this,"Vulkan is unavailable on this device; keeping GLES.",android.widget.Toast.LENGTH_LONG).show();
+            NoirNative.nativeSetGraphicsAPI(0);
+            return;
+        }
+        try{ NoirNative.nativeSetGraphicsAPI(api); }catch(Throwable ignored){}
+        if(renderer!=null) renderer.setGraphicsBackend(useVulkan?NoirRenderer.GraphicsBackend.VULKAN:NoirRenderer.GraphicsBackend.GLES);
+        if(rootContainer==null||editorUi==null||surface==null)return;
+
+        if(surface instanceof android.opengl.GLSurfaceView){
+            try{((android.opengl.GLSurfaceView)surface).onPause();}catch(Throwable ignored){}
+        }else{
+            try{NoirNative.vulkanDetachSurface();}catch(Throwable ignored){}
+        }
+        rootContainer.removeView(surface);
+
+        if(useVulkan) surface=new NoirVulkanSurface(this,renderer);
+        else surface=new NoirSurface(this,renderer);
+        editorUi.setViewport((NoirViewport)surface);
+        rootContainer.addView(surface,0,new FrameLayout.LayoutParams(-1,-1));
+        if(surface instanceof android.opengl.GLSurfaceView){
+            try{((android.opengl.GLSurfaceView)surface).onResume();}catch(Throwable ignored){}
+        }
+        if(useVulkan) NoirGraphicsBackend.save(this,NoirGraphicsBackend.Type.VULKAN);
+        else NoirGraphicsBackend.save(this,NoirGraphicsBackend.Type.GLES);
     }
 
     @Override protected void onDestroy(){
