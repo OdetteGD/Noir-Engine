@@ -37,7 +37,7 @@ public final class NoirEditorView extends android.view.View {
     private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
     private final EditorState state;
     private final NoirRenderer renderer;
-    private final NoirSurface surface;
+    private final NoirViewport surface;
     private final SceneTreeModel tree;
     private final AnimationTimelineModel timeline=new AnimationTimelineModel();
     private final ScriptDocument script=new ScriptDocument();
@@ -55,7 +55,7 @@ public final class NoirEditorView extends android.view.View {
     private final ArrayDeque<File> browserHistory=new ArrayDeque<>();
     private String status="Ready";
 
-    public NoirEditorView(Context c,EditorState s,NoirRenderer r,NoirSurface ss){
+    public NoirEditorView(Context c,EditorState s,NoirRenderer r,NoirViewport ss){
         super(c);
         state=s;renderer=r;surface=ss;
         tree=new SceneTreeModel(state.scene.root);
@@ -731,22 +731,31 @@ public final class NoirEditorView extends android.view.View {
     private void handleWorldTap(float x,float y,float t,float b,float w){
         if(y>t+dp(326)&&y<t+dp(382)){
             if(x>=dp(12)&&x<dp(98)){
-                renderer.setGraphicsBackend(NoirRenderer.GraphicsBackend.GLES);
                 NoirGraphicsBackend.save(getContext(),NoirGraphicsBackend.Type.GLES);
-                status="Graphics backend: GLES";
+                status="GLES selected • restart required";
+                new AlertDialog.Builder(getContext()).setTitle("Switch graphics backend")
+                    .setMessage("GLES will become active after restarting the editor.")
+                    .setNegativeButton("CANCEL",null)
+                    .setPositiveButton("RESTART",(d,which)->{
+                        try { ((android.app.Activity)getContext()).recreate(); } catch (Throwable ignored) {}
+                    }).show();
             }else if(x>=dp(98)&&x<dp(202)){
                 if(NoirGraphicsBackend.vulkanAvailable()){
                     boolean deviceReady=NoirGraphicsBackend.initializeVulkanStage();
-                    renderer.setGraphicsBackend(NoirRenderer.GraphicsBackend.VULKAN);
-                    NoirGraphicsBackend.save(getContext(),NoirGraphicsBackend.Type.VULKAN);
-                    status=deviceReady
-                            ? "Vulkan device ready • GLES viewport fallback"
-                            : "Vulkan probe OK • GLES viewport fallback";
-                    Toast.makeText(getContext(),
-                            deviceReady
-                                    ? NoirGraphicsBackend.vulkanDeviceInfo()
-                                    : "Vulkan device init failed safely; GLES remains active.",
-                            Toast.LENGTH_SHORT).show();
+                    if(deviceReady){
+                        NoirGraphicsBackend.save(getContext(),NoirGraphicsBackend.Type.VULKAN);
+                        status="Vulkan selected • restart required";
+                        new AlertDialog.Builder(getContext()).setTitle("Switch to Vulkan")
+                            .setMessage("Vulkan will become the active renderer after restarting the editor.\n\n"+NoirGraphicsBackend.vulkanDeviceInfo())
+                            .setNegativeButton("CANCEL",null)
+                            .setPositiveButton("RESTART",(d,which)->{
+                                try { ((android.app.Activity)getContext()).recreate(); } catch (Throwable ignored) {}
+                            }).show();
+                    }else{
+                        renderer.setGraphicsBackend(NoirRenderer.GraphicsBackend.GLES);
+                        status="Vulkan init failed safely — GLES remains active";
+                        Toast.makeText(getContext(),"Vulkan initialization failed; GLES remains active.",Toast.LENGTH_SHORT).show();
+                    }
                 }else{
                     renderer.setGraphicsBackend(NoirRenderer.GraphicsBackend.GLES);
                     NoirGraphicsBackend.save(getContext(),NoirGraphicsBackend.Type.GLES);
@@ -828,7 +837,7 @@ public final class NoirEditorView extends android.view.View {
     }
 
     private void addNode(){
-        String[] names={"Node3D","Mesh3D","Character3D","Camera3D","Light3D","StaticBody3D","RigidBody3D","Area3D","Particles3D","Water3D","Terrain3D","ReflectionProbe3D"};
+        String[] names={"Node3D","Character3D","Player3D","Camera3D","Light3D","Mesh3D","SkinnedMesh3D","Collider3D","RigidBody3D","StaticBody3D","Area3D","RayCast3D","Audio3D","Particles3D","Decal3D","Water3D","Terrain3D","Foliage3D","Spline3D","NavMesh3D","NavAgent3D","ReflectionProbe3D","LightProbe3D","WorldEnvironment","Sky3D","FogVolume3D","PostProcess3D","LODGroup3D","Occluder3D","AnimationPlayer","AnimationTree","BoneAttachment3D","IKTarget3D","Vehicle3D","SpringArm3D","UI3D"};
         new AlertDialog.Builder(getContext()).setTitle("Add Node").setItems(names,(d,which)->{
             try{addNodeKind(NoirNode.Kind.valueOf(names[which].toUpperCase(Locale.US)));}catch(Exception ex){addNodeKind(NoirNode.Kind.NODE3D);}
         }).show();
