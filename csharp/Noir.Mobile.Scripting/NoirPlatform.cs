@@ -1,10 +1,10 @@
 namespace Noir;
 
-public static class ResourceCache
+public static class NoirResourceCache
 {
-    private static readonly Dictionary<string,Resource> Cache=new(StringComparer.Ordinal);
-    public static T? Get<T>(string path) where T:Resource=>Cache.TryGetValue(path,out var value)?value as T:null;
-    public static void Put(string path,Resource resource)=>Cache[path]=resource;
+    private static readonly Dictionary<string,NoirResource> Cache=new(StringComparer.Ordinal);
+    public static T? Get<T>(string path) where T:NoirResource=>Cache.TryGetValue(path,out var value)?value as T:null;
+    public static void Put(string path,NoirResource resource)=>Cache[path]=resource;
     public static void Clear()=>Cache.Clear();
 }
 public static class Performance
