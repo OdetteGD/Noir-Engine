@@ -10,6 +10,7 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include "noir_world_scene.h"
 
 #define NOIR_VK_LOG(...) __android_log_print(ANDROID_LOG_INFO,"NoirVulkan",__VA_ARGS__)
 
@@ -280,8 +281,31 @@ extern "C" JNIEXPORT jboolean JNICALL Java_com_noir_game_engine_NoirNative_vulka
 }
 extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanResize(JNIEnv*,jclass,jint w,jint h){if(!g.initialized)return;(void)w;(void)h;}
 extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanSetScene(JNIEnv*env,jclass,jfloatArray arr){
-    if(!g.initialized||!arr)return;jsize len=env->GetArrayLength(arr);if(len<10){g.scene.clear();rebuildVertices();return;}std::vector<jfloat>d((size_t)len);env->GetFloatArrayRegion(arr,0,len,d.data());g.scene.clear();int n=std::min<int>(len/10,256);g.scene.reserve(n);for(int i=0;i<n;i++){const float*p=d.data()+i*10;Instance x{p[0],p[1],p[2],p[3],p[4],p[5],p[6],p[7],p[8],(int)std::lround(p[9])};g.scene.push_back(x);}rebuildVertices();
+    if(!g.initialized)return;
+    g.scene.clear();
+    if(arr){
+        jsize len=env->GetArrayLength(arr);
+        if(len>=10){
+            std::vector<jfloat>d(static_cast<size_t>(len));
+            env->GetFloatArrayRegion(arr,0,len,d.data());
+            int n=std::min<int>(len/10,256);
+            g.scene.reserve(n);
+            for(int i=0;i<n;i++){
+                const float*p=d.data()+i*10;
+                g.scene.push_back({p[0],p[1],p[2],p[3],p[4],p[5],p[6],p[7],p[8],(int)std::lround(p[9])});
+            }
+        }
+    }
+    if(g.scene.empty()){
+        std::vector<noir::world::Instance> fallback;
+        noir::world::buildDefaultWorld(fallback);
+        g.scene.reserve(fallback.size());
+        for(const auto&w:fallback)
+            g.scene.push_back({w.x,w.y,w.z,w.sx,w.sy,w.sz,w.rx,w.ry,w.rz,w.kind});
+    }
+    rebuildVertices();
 }
+
 extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanSetCamera(JNIEnv*,jclass,jfloat yaw,jfloat pitch,jfloat distance,jfloat tx,jfloat ty,jfloat tz){g.yaw=yaw;g.pitch=pitch;g.distance=distance;g.targetX=tx;g.targetY=ty;g.targetZ=tz;}
 extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanSetEnvironment(JNIEnv*,jclass,jint mode,jfloat exposure,jfloat brightness,jfloat fog,jfloat sx,jfloat sy,jfloat sz){g.skyMode=mode;g.exposure=std::max(0.05f,float(exposure));g.brightness=std::max(0.0f,float(brightness));g.fog=std::max(0.0f,float(fog));g.sun=normalize({sx,sy,sz});}
 extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanSetQuality(JNIEnv*,jclass,jint tier){g.quality=std::max(1.0f,std::min(4.0f,float(tier)));}
