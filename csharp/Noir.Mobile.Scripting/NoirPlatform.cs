@@ -1,6 +1,6 @@
 namespace Noir;
 
-public static class NoirResourceCache
+public static class ResourceCache
 {
     private static readonly Dictionary<string,NoirResource> Cache=new(StringComparer.Ordinal);
     public static T? Get<T>(string path) where T:NoirResource=>Cache.TryGetValue(path,out var value)?value as T:null;
