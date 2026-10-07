@@ -69,9 +69,13 @@ public final class NoirSurface extends GLSurfaceView implements NoirViewport {
                     NoirNative.graphicsSetQuality(renderer.nativeQualityTier());
                     nativeQualityVersion=renderer.nativeQualityTier();
                 }
-                NoirRenderer.Camera c=renderer.camera();
-                NoirNative.graphicsFrame(c.yaw,c.pitch,c.distance,c.targetX,c.targetY,c.targetZ,
-                        renderer.mode()==NoirRenderer.Mode.EDITOR);
+                if(renderer.mode()==NoirRenderer.Mode.RUNTIME){
+                    float[] rc=renderer.runtimeCameraState();
+                    NoirNative.graphicsFrameRuntime(rc[0],rc[1],rc[2],rc[3],rc[4],false);
+                }else{
+                    NoirRenderer.Camera c=renderer.camera();
+                    NoirNative.graphicsFrame(c.yaw,c.pitch,c.distance,c.targetX,c.targetY,c.targetZ,true);
+                }
                 renderer.setFrameTimeMs(NoirNative.graphicsFrameTimeMs());
             }else{
                 renderer.onDrawFrame(gl);
