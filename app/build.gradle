@@ -6,8 +6,37 @@ if (noirKeystore.exists()) {
     noirKeystore.withInputStream { noirProps.load(it) }
 }
 
+def noirCSharpBundle = rootProject.file("build/csharp/sdk")
+def noirCSharpGeneratedAssets = file("$buildDir/generated/noir-csharp-assets")
+
+tasks.register("prepareNoirCSharpAssets") {
+    inputs.dir(noirCSharpBundle)
+    outputs.dir(noirCSharpGeneratedAssets)
+    doLast {
+        if (!noirCSharpBundle.isDirectory()) {
+            throw new GradleException("Missing C# SDK bundle: $noirCSharpBundle. Build the Noir C# SDK before assembling the APK.")
+        }
+        def dlls = fileTree(noirCSharpBundle) { include("*.dll") }.files
+        if (dlls.isEmpty()) {
+            throw new GradleException("C# SDK bundle contains no DLLs: $noirCSharpBundle")
+        }
+        delete(noirCSharpGeneratedAssets)
+        copy {
+            from(noirCSharpBundle)
+            into(new File(noirCSharpGeneratedAssets, "csharp/sdk"))
+            include("*.dll")
+        }
+    }
+}
+
 android {
     namespace 'com.noir.game.engine'
+
+    sourceSets {
+        main {
+            assets.srcDir(noirCSharpGeneratedAssets)
+        }
+    }
     compileSdk 35
     ndkVersion "28.1.13356709"
 
@@ -68,6 +97,8 @@ android {
         }
     }
 }
+
+tasks.named("preBuild").configure { dependsOn("prepareNoirCSharpAssets") }
 
 dependencies {
     implementation project(':engine')
