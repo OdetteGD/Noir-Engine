@@ -15,6 +15,7 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.regex.*;
+import com.noir.game.engine.scripting.NoirScriptCompiler;
 
 public final class NoirScriptIdeView {
     private NoirScriptIdeView(){}
@@ -124,33 +125,41 @@ public final class NoirScriptIdeView {
     private static String join(List<String> a){StringBuilder b=new StringBuilder();for(String s:a)b.append(s).append("\n");return b.toString().trim();}
 
     private static List<String> validate(String s,boolean cs,boolean shader){
-        ArrayList<String> e=new ArrayList<>();
-        int braces=0,parens=0;boolean lineComment=false,string=false;
-        String[] lines=s.split("\n",-1);
-        for(int li=0;li<lines.length;li++){
-            String line=lines[li];
-            for(int i=0;i<line.length();i++){
-                char ch=line.charAt(i),next=i+1<line.length()?line.charAt(i+1):0;
-                if(!string && ch=='/' && next=='/'){lineComment=true;break;}
-                if(!lineComment && ch=='"'){string=!string;continue;}
-                if(lineComment)continue;
-                if(ch=='{')braces++;else if(ch=='}')braces--;
-                else if(ch=='(')parens++;else if(ch==')')parens--;
-                if(braces<0){e.add("Line "+(li+1)+": unexpected '}'");braces=0;}
-                if(parens<0){e.add("Line "+(li+1)+": unexpected ')'");parens=0;}
+        ArrayList<String> out=new ArrayList<>();
+        if(cs){
+            int braces=0,parens=0,brackets=0; boolean string=false,blockComment=false;
+            String[] lines=s.split("\\n",-1);
+            for(int li=0;li<lines.length;li++){
+                String line=lines[li];
+                for(int i=0;i<line.length();i++){
+                    char c=line.charAt(i),n=i+1<line.length()?line.charAt(i+1):0;
+                    if(!string&&!blockComment&&c=='/'&&n=='*'){blockComment=true;i++;continue;}
+                    if(blockComment&&c=='*'&&n=='/'){blockComment=false;i++;continue;}
+                    if(blockComment)continue;
+                    if(c=='"'&&(i==0||line.charAt(i-1)!='\\\\'))string=!string;
+                    if(string)continue;
+                    if(c=='{')braces++;else if(c=='}')braces--;else if(c=='(')parens++;else if(c==')')parens--;else if(c=='[')brackets++;else if(c==']')brackets--;
+                    if(braces<0){out.add("Line "+(li+1)+":"+ (i+1)+" unexpected '}'");braces=0;}
+                    if(parens<0){out.add("Line "+(li+1)+":"+ (i+1)+" unexpected ')'");parens=0;}
+                    if(brackets<0){out.add("Line "+(li+1)+":"+ (i+1)+" unexpected ']'");brackets=0;}
+                }
+                String t=line.trim();
+                if(t.matches("^(class|struct|interface|enum)\\s+[^A-Za-z_].*"))out.add("Line "+(li+1)+": type name must start with a letter or underscore");
+                if(t.matches("^using\\s*;.*"))out.add("Line "+(li+1)+": using directive requires a namespace or type");
+                if(t.matches(".*\\b(if|for|while|switch|catch)\\s*\\([^)]*\\)\\s*[^\\{;].*"))out.add("Line "+(li+1)+": control statement is missing its block");
             }
-            lineComment=false;
-            if(line.length()>180)e.add("Line "+(li+1)+": long line may overflow the mobile editor");
-            if(!cs && !shader && line.trim().startsWith("entity ") && !line.contains("{"))
-                e.add("Line "+(li+1)+": entity declaration needs '{'");
+            if(string)out.add("Unclosed string literal");
+            if(blockComment)out.add("Unclosed block comment");
+            if(braces!=0)out.add("Unbalanced braces: "+braces);
+            if(parens!=0)out.add("Unbalanced parentheses: "+parens);
+            if(brackets!=0)out.add("Unbalanced brackets: "+brackets);
+        }else{
+            NoirScriptCompiler.CompileResult result=new NoirScriptCompiler().validate(s);
+            for(NoirScriptCompiler.Diagnostic d:result.diagnostics)out.add("Line "+d.line+":"+d.column+" "+d.severity+": "+d.message);
+            if(shader&&!s.contains("shader_type"))out.add("Line 1: ERROR: shader source should declare shader_type");
         }
-        if(braces!=0)e.add("Unbalanced braces: "+braces);
-        if(parens!=0)e.add("Unbalanced parentheses: "+parens);
-        if(shader && !s.contains("shader_type"))e.add("Shader source should declare shader_type");
-        if(string)e.add("Unclosed string literal");
-        return e;
+        return out;
     }
-
     private static void highlight(EditText editor,boolean cs,boolean shader){
         String s=editor.getText().toString();
         SpannableStringBuilder b=new SpannableStringBuilder(s);
