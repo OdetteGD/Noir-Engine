@@ -18,7 +18,7 @@ import java.nio.charset.StandardCharsets;
 public final class MainActivity extends Activity {
     private NoirRenderer renderer;
     private NoirEditorView editorUi;
-    private NoirThreeViewport threeViewport;
+    private NoirSurface surface;
 
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
@@ -38,12 +38,13 @@ public final class MainActivity extends Activity {
             // remains available for runtime/engine work, but the editor no
             // longer depends on the incomplete native Vulkan clear-only path.
             renderer.setGraphicsBackend(NoirRenderer.GraphicsBackend.GLES);
-            threeViewport=new NoirThreeViewport(this,renderer);
-            editorUi=new NoirEditorView(this,editor,renderer,threeViewport);
+            surface=new NoirSurface(this,renderer);
+            surface.setEditorTapListener((x,y)->{});
+            editorUi=new NoirEditorView(this,editor,renderer,surface);
 
             FrameLayout root=new FrameLayout(this);
             root.setBackgroundColor(Color.rgb(11,18,32));
-            root.addView(threeViewport,new FrameLayout.LayoutParams(-1,-1));
+            root.addView(surface,new FrameLayout.LayoutParams(-1,-1));
             root.addView(editorUi,new FrameLayout.LayoutParams(-1,-1));
             setContentView(root);
         } catch(Throwable openError) {
@@ -52,7 +53,6 @@ public final class MainActivity extends Activity {
     }
 
     @Override protected void onDestroy(){
-        if(threeViewport!=null) threeViewport.stopLoading();
         NoirGraphicsBackend.shutdownVulkanStage();
         super.onDestroy();
     }
