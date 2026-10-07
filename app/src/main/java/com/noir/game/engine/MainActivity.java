@@ -23,6 +23,7 @@ public final class MainActivity extends Activity {
 
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
+        NoirCrashReporter.install(this);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
@@ -82,7 +83,7 @@ public final class MainActivity extends Activity {
                 +"Project: "+projectName+"\n"
                 +"The project could not initialize the editor.\n"
                 +"A safe fallback scene was prepared, but the current graphics surface failed.\n\n"
-                +"Open the project again after checking the editor logs.");
+                +"A crash report may be available at Android/data/com.noir.game.engine/files/noir-crash/last_crash.txt.");
         view.setBackgroundColor(NoirTheme.color("surface",Color.rgb(255,253,248)));
         setContentView(view);
     }
