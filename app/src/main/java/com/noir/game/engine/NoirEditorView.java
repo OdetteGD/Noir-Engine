@@ -81,6 +81,7 @@ public final class NoirEditorView extends android.view.View {
         density=getResources().getDisplayMetrics().density;
         setFocusable(true);
         setWillNotDraw(false);
+        setBackgroundColor(Color.TRANSPARENT);
         browserDir=state.projectRoot;
         state.log("Noir mobile editor ready");
     }
