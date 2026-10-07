@@ -12,6 +12,7 @@ RenderManager& RenderManager::Instance() noexcept {
 
 bool RenderManager::SwitchGraphicsAPI(GraphicsAPI newAPI, ANativeWindow* window) noexcept {
     std::lock_guard<std::mutex> lock(mutex_);
+    if(newAPI == activeAPI_ && !pendingSwitch_) return true;
     requestedAPI_ = newAPI;
     pendingWindow_ = window;
     pendingSwitch_ = true;
@@ -22,6 +23,7 @@ bool RenderManager::SwitchGraphicsAPI(GraphicsAPI newAPI, ANativeWindow* window)
 bool RenderManager::ApplyPendingSwitch() noexcept {
     std::unique_ptr<IRenderer> oldRenderer;
     GraphicsAPI requested;
+    GraphicsAPI previous;
     ANativeWindow* window = nullptr;
 
     {
@@ -31,6 +33,7 @@ bool RenderManager::ApplyPendingSwitch() noexcept {
             return true;
         }
         requested = requestedAPI_;
+        previous = activeAPI_;
         window = pendingWindow_;
         oldRenderer = std::move(activeRenderer_);
     }
@@ -52,7 +55,7 @@ bool RenderManager::ApplyPendingSwitch() noexcept {
     if(!replacement->Initialize(window)) {
         replacement->Shutdown();
         // Rebuild the old API rather than leaving the editor with no renderer.
-        auto fallback = CreateRendererLocked(activeAPI_);
+        auto fallback = CreateRendererLocked(previous);
         bool ok = fallback && fallback->Initialize(window);
         std::lock_guard<std::mutex> lock(mutex_);
         activeRenderer_ = std::move(fallback);
