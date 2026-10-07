@@ -22,4 +22,8 @@ public final class NoirNative {
     public static native boolean vulkanSupported();
     public static native String vulkanStatus();
     public static native String glesBackendInfo();
+    public static native boolean vulkanInitialize();
+    public static native void vulkanShutdown();
+    public static native boolean vulkanDeviceReady();
+    public static native String vulkanDeviceInfo();
 }
