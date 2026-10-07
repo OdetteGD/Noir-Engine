@@ -50,6 +50,7 @@ private:
     GraphicsAPI requestedAPI_ = GraphicsAPI::OPENGL_ES;
     bool pendingSwitch_ = false;
     bool pausedForSwitch_ = false;
+    std::uint64_t requestSerial_ = 0;
 };
 
 } // namespace noir::render
