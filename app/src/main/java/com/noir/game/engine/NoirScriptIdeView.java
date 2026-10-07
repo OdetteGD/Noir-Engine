@@ -69,7 +69,7 @@ public final class NoirScriptIdeView {
         TextView title=label(context,file.getName()+"  •  "+language,Color.WHITE,13);
         bar.addView(title,new LinearLayout.LayoutParams(0,48,1));
 
-        Button check=button(context,"CHECK");
+        Button check=button(context,"CHECK + DLL");
         Button save=button(context,"SAVE");
         Button close=button(context,"CLOSE");
         bar.addView(check);bar.addView(save);bar.addView(close);
