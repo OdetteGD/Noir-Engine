@@ -988,14 +988,21 @@ public final class NoirEditorView extends android.view.View {
             .setPositiveButton("OK",null).show();
     }
 
+    private String fitLabel(String s,float max,float size){
+        p.setTypeface(Typeface.create("sans",Typeface.NORMAL));p.setTextSize(size);
+        if(p.measureText(s)<=max)return s;
+        String e="…";float ew=p.measureText(e);int n=s.length();
+        while(n>0&&p.measureText(s,0,n)+ew>max)n--;
+        return n>0?s.substring(0,n)+e:e;
+    }
     private void smallButton(Canvas c,float x,float y,float w,String s,boolean active){
         round(c,active?ACTIVE:0xff202b3d,x,y,x+w,y+dp(32),dp(5));
-        text(c,s,x+dp(9),y+dp(21),dp(8),TEXT);
+        text(c,fitLabel(s,Math.max(8,w-dp(18)),dp(8)),x+dp(9),y+dp(21),dp(8),TEXT);
     }
 
     private void toolButton(Canvas c,float x,float y,float w,float h,String s,boolean active){
         round(c,active?ACTIVE:0xff202b3d,x,y,x+w,y+h,dp(6));
-        text(c,s,x+dp(10),y+dp(25),dp(9),TEXT);
+        text(c,fitLabel(s,Math.max(8,w-dp(20)),dp(9)),x+dp(10),y+dp(25),dp(9),TEXT);
     }
 
     private String icon(NoirNode.Kind k){
