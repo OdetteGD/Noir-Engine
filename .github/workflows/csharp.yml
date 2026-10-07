@@ -70,6 +70,14 @@ jobs:
           test -s build/csharp/Noir.Game.dll
           dotnet run --project csharp/Noir.CSharp.Compiler/Noir.CSharp.Compiler.csproj --configuration Release -- build csharp/Noir.GameTemplate build/csharp/Noir.GameTemplate.dll
           test -s build/csharp/Noir.GameTemplate.dll
+          cat > build/csharp/invalid.cs <<'EOF'
+&#\*$!÷&#£j
+EOF
+          if dotnet run --project csharp/Noir.CSharp.Compiler/Noir.CSharp.Compiler.csproj --configuration Release -- compile build/csharp/invalid.dll build/csharp/invalid.cs; then
+            echo "ERROR: malformed C# unexpectedly compiled"
+            exit 1
+          fi
+          test ! -s build/csharp/invalid.dll
 
       - name: Assemble complete C# SDK dependency bundle
         shell: bash
