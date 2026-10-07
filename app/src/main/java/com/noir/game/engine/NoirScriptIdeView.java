@@ -30,8 +30,10 @@ public final class NoirScriptIdeView {
             return;
         }
 
-        final boolean cs=file.getName().toLowerCase(Locale.US).endsWith(".cs");
-        final String language=cs?"C#":"Noir .game";
+        final String lowerName=file.getName().toLowerCase(Locale.US);
+        final boolean cs=lowerName.endsWith(".cs");
+        final boolean shader=lowerName.endsWith(".shader")||lowerName.endsWith(".glsl")||lowerName.endsWith(".vert")||lowerName.endsWith(".frag");
+        final String language=cs?"C#":(shader?"Noir Shader":"Noir .game");
         final EditText editor=new EditText(context);
         editor.setText(source);
         editor.setTextColor(Color.rgb(225,232,244));
@@ -74,12 +76,12 @@ public final class NoirScriptIdeView {
         AlertDialog dialog=new AlertDialog.Builder(context).setView(root).create();
         close.setOnClickListener(v->dialog.dismiss());
         Runnable validate=()->{
-            List<String> errors=validate(editor.getText().toString(),cs);
+            List<String> errors=validate(editor.getText().toString(),cs,shader);
             diagnostics.setText(errors.isEmpty()?"✓ No syntax diagnostics":
                     "Diagnostics ("+errors.size()+")\n"+join(errors));
             diagnostics.setTextColor(errors.isEmpty()?Color.rgb(121,224,160):Color.rgb(255,120,132));
         };
-        Runnable highlight=()->highlight(editor,cs);
+        Runnable highlight=()->highlight(editor,cs,shader);
         check.setOnClickListener(v->{validate.run();highlight.run();});
         save.setOnClickListener(v->{
             try{
@@ -121,7 +123,7 @@ public final class NoirScriptIdeView {
     }
     private static String join(List<String> a){StringBuilder b=new StringBuilder();for(String s:a)b.append(s).append("\n");return b.toString().trim();}
 
-    private static List<String> validate(String s,boolean cs){
+    private static List<String> validate(String s,boolean cs,boolean shader){
         ArrayList<String> e=new ArrayList<>();
         int braces=0,parens=0;boolean lineComment=false,string=false;
         String[] lines=s.split("\n",-1);
@@ -139,20 +141,23 @@ public final class NoirScriptIdeView {
             }
             lineComment=false;
             if(line.length()>180)e.add("Line "+(li+1)+": long line may overflow the mobile editor");
-            if(!cs && line.trim().startsWith("entity ") && !line.contains("{"))
+            if(!cs && !shader && line.trim().startsWith("entity ") && !line.contains("{"))
                 e.add("Line "+(li+1)+": entity declaration needs '{'");
         }
         if(braces!=0)e.add("Unbalanced braces: "+braces);
         if(parens!=0)e.add("Unbalanced parentheses: "+parens);
+        if(shader && !s.contains("shader_type"))e.add("Shader source should declare shader_type");
         if(string)e.add("Unclosed string literal");
         return e;
     }
 
-    private static void highlight(EditText editor,boolean cs){
+    private static void highlight(EditText editor,boolean cs,boolean shader){
         String s=editor.getText().toString();
         SpannableStringBuilder b=new SpannableStringBuilder(s);
         int keyword=Color.rgb(131,169,255),number=Color.rgb(255,199,102),comment=Color.rgb(105,135,112),string=Color.rgb(150,220,170),type=Color.rgb(196,150,255);
-        Pattern p=cs
+        Pattern p=shader
+                ?Pattern.compile("\\b(shader_type|render_mode|uniform|varying|void|vertex|fragment|light|group_uniforms|group|return|if|else|for|true|false)\\b|\\b(float|vec2|vec3|vec4|mat3|mat4|sampler2D|COLOR|SCREEN_UV|TIME|NORMAL|UV)\\b|\\b\\d+(?:\\.\\d+)?\\b|//.*|"(?:\\\\.|[^"])*"")
+                :cs
                 ?Pattern.compile("\\b(class|public|private|protected|sealed|using|namespace|override|return|if|else|for|while|new|float|int|bool|void|true|false)\\b|\\b(Character3D|Vector3|Input|Export)\\b|\\b\\d+(?:\\.\\d+)?f?\\b|//.*|\"(?:\\\\.|[^\"])*\"")
                 :Pattern.compile("\\b(entity|type|property|input|start|physics|if|else|true|false)\\b|\\b(Character3D|Camera3D|vector|move_and_slide|child)\\b|\\b\\d+(?:\\.\\d+)?\\b|//.*|\"(?:\\\\.|[^\"])*\"");
         Matcher m=p.matcher(s);
@@ -160,7 +165,7 @@ public final class NoirScriptIdeView {
             String token=m.group();
             int color=token.startsWith("//")?comment:token.startsWith("\"")?string:
                     token.matches("\\d.*")?number:
-                    token.matches(".*(Character3D|Vector3|Input|Export|Camera3D|vector|move_and_slide|child).*")?type:keyword;
+                    token.matches(".*(Character3D|Vector3|Input|Export|Camera3D|vector|move_and_slide|child|shader_type|render_mode|uniform|vec2|vec3|vec4|sampler2D|SCREEN_UV|TIME).*")?type:keyword;
             b.setSpan(new ForegroundColorSpan(color),m.start(),m.end(),Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
         }
         editor.setText(b,TextView.BufferType.SPANNABLE);
