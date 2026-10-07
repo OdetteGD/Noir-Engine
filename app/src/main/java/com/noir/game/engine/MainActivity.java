@@ -5,6 +5,8 @@ import android.os.Bundle;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
+import android.widget.TextView;
+import android.graphics.Color;
 import com.noir.game.engine.core.GameFileParser;
 import com.noir.game.engine.editor.EditorState;
 import com.noir.game.engine.scene.NoirNode;
@@ -26,17 +28,44 @@ public final class MainActivity extends Activity {
         if(projectPath!=null && !projectPath.trim().isEmpty()){
             try{ new NoirProjectWorkspace(this).ensureCSharpLayout(new File(projectPath).getCanonicalFile()); }catch(Throwable ignored){}
         }
-        NoirScene scene=loadProjectScene(projectPath);
-        EditorState editor=new EditorState(scene,projectPath);
-        renderer=new NoirRenderer();
+        try {
+            NoirScene scene=loadProjectScene(projectPath);
+            EditorState editor=new EditorState(scene,projectPath);
+            renderer=new NoirRenderer();
 
-        NoirSurface surface=new NoirSurface(this,renderer);
-        editorUi=new NoirEditorView(this,editor,renderer,surface);
+            NoirSurface surface=new NoirSurface(this,renderer);
+            editorUi=new NoirEditorView(this,editor,renderer,surface);
 
-        FrameLayout root=new FrameLayout(this);
-        root.addView(surface,new FrameLayout.LayoutParams(-1,-1));
-        root.addView(editorUi,new FrameLayout.LayoutParams(-1,-1));
-        setContentView(root);
+            FrameLayout root=new FrameLayout(this);
+            root.addView(surface,new FrameLayout.LayoutParams(-1,-1));
+            root.addView(editorUi,new FrameLayout.LayoutParams(-1,-1));
+            setContentView(root);
+        } catch(Throwable openError) {
+            // Last-resort Java recovery: never leave the user with a fatal Activity crash
+            // when the editor stack rejects a project or an unsupported graphics config.
+            showOpenRecovery(projectPath,openError);
+        }
+    }
+
+    @Override protected void onDestroy(){
+        NoirGraphicsBackend.shutdownVulkanStage();
+        super.onDestroy();
+    }
+
+    private void showOpenRecovery(String projectPath, Throwable error){
+        TextView view=new TextView(this);
+        view.setTextColor(Color.WHITE);
+        view.setTextSize(16f);
+        view.setPadding(48,48,48,48);
+        String projectName=(projectPath==null||projectPath.trim().isEmpty())
+                ? "New Project" : new File(projectPath).getName();
+        view.setText("Noir Engine Recovery\n\n"
+                +"Project: "+projectName+"\n"
+                +"The project could not initialize the editor.\n"
+                +"A safe fallback scene was prepared, but the current graphics surface failed.\n\n"
+                +"Open the project again after switching to GLES if needed.");
+        view.setBackgroundColor(Color.rgb(18,20,24));
+        setContentView(view);
     }
 
     @Override public void onBackPressed(){
