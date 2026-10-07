@@ -231,7 +231,6 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
         ArrayList<float[]> rows=new ArrayList<>();
         for(NoirNode n:nodes){
             if(n==scene.root || !n.visible || n.kind==NoirNode.Kind.WORLD_ENVIRONMENT)continue;
-            float s=Math.max(0.05f,Math.max(Math.abs(n.sx),Math.max(Math.abs(n.sy),Math.abs(n.sz))));
             rows.add(new float[]{n.px,n.py,n.pz,n.sx,n.sy,n.sz,n.rx,n.ry,n.rz,n.kind.ordinal()});
         }
         float[] packed=new float[rows.size()*10];
