@@ -397,6 +397,10 @@ public final class NoirEditorView extends android.view.View {
             text(c,names[i],l+dp(18),y+dp(18),dp(9),TEXT);
             smallButton(c,r-dp(92),y,dp(76),on?"ON":"OFF",on);
         }
+        text(c,"GRAPHICS BACKEND",l+dp(18),t+dp(326),dp(9),MUTED);
+        smallButton(c,l+dp(18),t+dp(338),dp(76),"GLES",renderer.graphicsBackend()==NoirRenderer.GraphicsBackend.GLES);
+        smallButton(c,l+dp(102),t+dp(338),dp(88),"VULKAN",renderer.graphicsBackend()==NoirRenderer.GraphicsBackend.VULKAN);
+        text(c,renderer.graphicsBackendStatus(),l+dp(18),t+dp(390),dp(8),MUTED);
         text(c,"QUALITY",l+dp(18),b-dp(112),dp(9),MUTED);
         smallButton(c,l+dp(74),b-dp(126),dp(62),"HIGH",false);
         smallButton(c,l+dp(140),b-dp(126),dp(62),"ULTRA",true);
@@ -701,6 +705,25 @@ public final class NoirEditorView extends android.view.View {
     }
 
     private void handleWorldTap(float x,float y,float t,float b,float w){
+        if(y>t+dp(326)&&y<t+dp(382)){
+            if(x>=dp(12)&&x<dp(98)){
+                renderer.setGraphicsBackend(NoirRenderer.GraphicsBackend.GLES);
+                NoirGraphicsBackend.save(getContext(),NoirGraphicsBackend.Type.GLES);
+                status="Graphics backend: GLES";
+            }else if(x>=dp(98)&&x<dp(202)){
+                if(NoirGraphicsBackend.vulkanAvailable()){
+                    renderer.setGraphicsBackend(NoirRenderer.GraphicsBackend.VULKAN);
+                    NoirGraphicsBackend.save(getContext(),NoirGraphicsBackend.Type.VULKAN);
+                    status="Graphics backend: Vulkan";
+                }else{
+                    renderer.setGraphicsBackend(NoirRenderer.GraphicsBackend.GLES);
+                    NoirGraphicsBackend.save(getContext(),NoirGraphicsBackend.Type.GLES);
+                    status="Vulkan unavailable — using GLES";
+                    Toast.makeText(getContext(),"Vulkan is not available on this device. GLES remains active.",Toast.LENGTH_SHORT).show();
+                }
+            }
+            return;
+        }
         if(y>b-dp(150)&&y<b-dp(100)){
             if(x>dp(68)&&x<dp(140)){renderer.setQualityPreset(NoirRenderer.QualityPreset.HIGH);status="Quality HIGH";}
             else if(x>=dp(140)&&x<dp(206)){renderer.setQualityPreset(NoirRenderer.QualityPreset.ULTRA);status="Quality ULTRA";}
