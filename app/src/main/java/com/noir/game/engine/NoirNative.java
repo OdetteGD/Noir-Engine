@@ -19,6 +19,10 @@ public final class NoirNative {
     public static native int countAabbPairs(float[] boxes);
     public static native float smoothDamp(float current,float target,float currentVelocity,float smoothTime,float maxSpeed,float dt);
     public static native String mobilePbrShader();
+    public static native void setWorldEnvironment(float exposure,float ambient,float skyStrength,float sunStrength,float fogDensity,float cloudStrength,boolean enabled);
+    public static native String worldEnvironmentInfo();
+    public static native String worldEnvironmentGlesShader();
+    public static native String worldEnvironmentVulkanShader();
     public static native boolean vulkanSupported();
     public static native String vulkanStatus();
     public static native String glesBackendInfo();
