@@ -1,4 +1,7 @@
 #include <jni.h>
+#ifndef VK_USE_PLATFORM_ANDROID_KHR
+#define VK_USE_PLATFORM_ANDROID_KHR
+#endif
 #include <vulkan/vulkan.h>
 #include <android/native_window_jni.h>
 #include <android/log.h>
