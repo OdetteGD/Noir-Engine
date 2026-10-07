@@ -507,10 +507,10 @@ public final class NoirEditorView extends android.view.View {
             smallButton(c,r-dp(92),y,dp(76),on?"ON":"OFF",on);
         }
 
-        text(c,"GRAPHICS BACKEND",l+dp(18),t+dp(374),dp(9),MUTED);
-        smallButton(c,l+dp(18),t+dp(386),dp(76),"GLES",renderer.graphicsBackend()==NoirRenderer.GraphicsBackend.GLES);
-        smallButton(c,l+dp(102),t+dp(386),dp(88),"VULKAN",renderer.graphicsBackend()==NoirRenderer.GraphicsBackend.VULKAN);
-        text(c,renderer.graphicsBackendStatus(),l+dp(18),t+dp(438),dp(8),MUTED);
+        text(c,"GRAPHICS API",l+dp(18),t+dp(374),dp(9),MUTED);
+        smallButton(c,l+dp(18),t+dp(386),dp(174),
+                renderer.graphicsBackend()==NoirRenderer.GraphicsBackend.VULKAN?"VULKAN ▼":"OPENGL ES 3.0 ▼",true);
+        text(c,"Native C++ renderer • live surface switch • scene preserved",l+dp(18),t+dp(438),dp(8),MUTED);
         text(c,renderer.nativeSceneApplied()?"SCENE SYNCED":"SCENE SYNC PENDING",l+dp(18),t+dp(458),dp(8),renderer.nativeSceneApplied()?GOOD:WARN);
 
         text(c,"QUALITY",l+dp(18),b-dp(112),dp(9),MUTED);
@@ -891,35 +891,7 @@ public final class NoirEditorView extends android.view.View {
             return;
         }
         if(y>t+dp(374)&&y<t+dp(432)){
-            if(x>=dp(18)&&x<dp(96)){
-                NoirGraphicsBackend.save(getContext(),NoirGraphicsBackend.Type.GLES);
-                status="GLES selected • restart required";
-                new AlertDialog.Builder(getContext()).setTitle("Switch graphics backend")
-                    .setMessage("GLES will become active after restarting the editor.")
-                    .setNegativeButton("CANCEL",null)
-                    .setPositiveButton("RESTART",(d,which)->{ try { ((android.app.Activity)getContext()).recreate(); } catch (Throwable ignored) {} }).show();
-            }else if(x>=dp(102)&&x<dp(202)){
-                if(NoirGraphicsBackend.vulkanAvailable()){
-                    boolean deviceReady=NoirGraphicsBackend.initializeVulkanStage();
-                    if(deviceReady){
-                        NoirGraphicsBackend.save(getContext(),NoirGraphicsBackend.Type.VULKAN);
-                        status="Vulkan selected • restart required";
-                        new AlertDialog.Builder(getContext()).setTitle("Switch to Vulkan")
-                            .setMessage("Vulkan will become the active renderer after restarting the editor.\n\n"+NoirGraphicsBackend.vulkanDeviceInfo())
-                            .setNegativeButton("CANCEL",null)
-                            .setPositiveButton("RESTART",(d,which)->{ try { ((android.app.Activity)getContext()).recreate(); } catch (Throwable ignored) {} }).show();
-                    }else{
-                        renderer.setGraphicsBackend(NoirRenderer.GraphicsBackend.GLES);
-                        status="Vulkan init failed safely — GLES remains active";
-                        Toast.makeText(getContext(),"Vulkan initialization failed; GLES remains active.",Toast.LENGTH_SHORT).show();
-                    }
-                }else{
-                    renderer.setGraphicsBackend(NoirRenderer.GraphicsBackend.GLES);
-                    NoirGraphicsBackend.save(getContext(),NoirGraphicsBackend.Type.GLES);
-                    status="Vulkan unavailable — using GLES";
-                    Toast.makeText(getContext(),"Vulkan is not available on this device. GLES remains active.",Toast.LENGTH_SHORT).show();
-                }
-            }
+            if(x>=dp(18)&&x<dp(210)) showGraphicsApiDropdown();
             return;
         }
         if(y>b-dp(150)&&y<b-dp(100)){
@@ -943,6 +915,23 @@ public final class NoirEditorView extends android.view.View {
             state.scene.environment.put("exposure",String.format(Locale.US,"%.2f",value));
             renderer.applyScene(state.scene);
         }
+    }
+
+    private void showGraphicsApiDropdown(){
+        String[] choices={"OpenGL ES 3.0 (Native C++)","Vulkan 1.1+ (Native C++)"};
+        int checked=renderer.graphicsBackend()==NoirRenderer.GraphicsBackend.VULKAN?1:0;
+        new AlertDialog.Builder(getContext())
+                .setTitle("Graphics API")
+                .setSingleChoiceItems(choices,checked,(dialog,which)->{
+                    android.content.Context ctx=getContext();
+                    if(ctx instanceof MainActivity){
+                        ((MainActivity)ctx).switchGraphicsApi(which);
+                        state.log("Graphics API -> "+choices[which]);
+                        status=which==1?"Vulkan selected":"OpenGL ES 3.0 selected";
+                    }
+                    dialog.dismiss();
+                    invalidate();
+                }).setNegativeButton("CANCEL",null).show();
     }
 
     private void setSkyMode(WorldEnvironmentSettings.SkyMode mode){
