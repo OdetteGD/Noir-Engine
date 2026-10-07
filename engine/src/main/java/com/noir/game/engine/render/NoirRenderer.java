@@ -23,6 +23,10 @@ import javax.microedition.khronos.opengles.GL10;
 public final class NoirRenderer implements GLSurfaceView.Renderer {
     public enum Mode { EDITOR, RUNTIME }
     public enum QualityPreset { MOBILE, HIGH, ULTRA, EXTREME }
+    public enum GraphicsBackend { GLES, VULKAN }
+    private GraphicsBackend backend=GraphicsBackend.GLES;
+    private boolean gpuReady;
+    private volatile boolean pendingShadowRebuild;
 
     public static final class Camera {
         public float yaw = -90f, pitch = 12f, distance = 18f;
@@ -81,6 +85,10 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
     private float time;
 
     public NoirRenderer(){ setQualityPreset(QualityPreset.MOBILE); editorCamera.updateOrbit(); }
+    public GraphicsBackend graphicsBackend(){return backend;}
+    public boolean isGpuReady(){return gpuReady;}
+    public void setGraphicsBackend(GraphicsBackend b){backend=b==null?GraphicsBackend.GLES:b;}
+    public String graphicsBackendStatus(){return backend==GraphicsBackend.VULKAN?"VULKAN • native backend / safe GLES fallback":"GLES 3.0 • Forward PBR";}
 
     @Override public void onSurfaceCreated(GL10 gl,EGLConfig config){
         GLES30.glClearColor(0.02f,0.03f,0.055f,1f);
@@ -145,6 +153,8 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
         frameTimeMs=dt*1000f;
         time+=dt;
         if(mode==Mode.EDITOR) editorCamera.updateOrbit();
+        if(pendingShadowRebuild){pendingShadowRebuild=false;recreateShadowMapIfReady();}
+        if(!gpuReady){GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);return;}
 
         if(quality.shadows && shadowFbo!=0) renderShadowPass();
         renderMainPass();
@@ -173,7 +183,7 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
                 quality.bloom=true; quality.ambientOcclusion=true; quality.toneMapping=true; quality.colorGrading=true;
                 quality.exposure=1.10f; quality.renderScale=1.0f; break;
         }
-        recreateShadowMapIfReady();
+        pendingShadowRebuild=true;
     }
 
     public void setMode(Mode m){mode=m;}
