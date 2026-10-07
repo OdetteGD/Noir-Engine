@@ -310,7 +310,7 @@ struct Renderer::Impl {
             case 16:return {0.24f,0.52f,0.28f};   // TERRAIN3D
             case 17:return {0.20f,0.60f,0.27f};   // FOLIAGE3D
             case 21:return {0.65f,0.46f,0.88f};   // REFLECTION_PROBE3D
-            case 23:return {0.75f,0.50f,0.25f};   // SKY3D
+            case 24:return {0.75f,0.50f,0.25f};   // SKY3D
             default:return {0.47f,0.52f,0.60f};
         }
     }
@@ -330,7 +330,7 @@ struct Renderer::Impl {
         glUniform1f(glGetUniformLocation(pbr,"uRoughness"),0.58f);
         glUniform1f(glGetUniformLocation(pbr,"uMetallic"),0.06f);
         for(const SceneInstance& n:scene){
-            if(n.kind==24)return; // WorldEnvironment never reaches the native list, kept safe.
+            if(n.kind==23)continue; // WorldEnvironment is represented by setEnvironment().
             Mat4 m=model(n.x,n.y,n.z,n.rx*0.0174532925f,n.ry*0.0174532925f,n.rz*0.0174532925f,
                          std::max(0.05f,std::fabs(n.sx)),std::max(0.05f,std::fabs(n.sy)),std::max(0.05f,std::fabs(n.sz)));
             Vec3 color=colorForKind(n.kind);
