@@ -24,7 +24,7 @@ void buildDefaultWorld(std::vector<Instance>& out){
     for(auto &r:rocks){
         Instance n;
         n.x=r[0];n.y=r[1];n.z=r[2];
-        n.sx=r[3];n.sy=r[3]*0.62f;n.sz=r[3]*0.9f;n.kind=35;
+        n.sx=r[3];n.sy=r[3]*0.62f;n.sz=r[3]*0.9f;n.kind=36;
         out.push_back(n);
     }
 
