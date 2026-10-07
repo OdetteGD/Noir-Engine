@@ -130,6 +130,11 @@ public final class MainActivity extends Activity {
                 env.properties.put("sky_brightness", "1.0");
                 env.properties.put("exposure", "1.0");
                 env.properties.put("fog_density", "0.008");
+                NoirNode sky = env.children.stream().filter(n -> n.kind == NoirNode.Kind.SKY3D).findFirst().orElse(null);
+                if (sky == null) {
+                    sky = env.add(new NoirNode("Sky3D", "Sky3D", NoirNode.Kind.SKY3D));
+                    sky.properties.put("material", "ProceduralSkyMaterial");
+                }
             }
             if (root.find("Sun") == null) {
                 NoirNode sun = root.add(new NoirNode("Sun", "Sun", NoirNode.Kind.LIGHT3D));
