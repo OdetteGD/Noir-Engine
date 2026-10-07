@@ -254,11 +254,35 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
             if(!Float.isFinite(wsx)||Math.abs(wsx)<0.001f)wsx=node.sx;
             if(!Float.isFinite(wsy)||Math.abs(wsy)<0.001f)wsy=node.sy;
             if(!Float.isFinite(wsz)||Math.abs(wsz)<0.001f)wsz=node.sz;
-            rows.add(new float[]{wx,wy,wz,wsx,wsy,wsz,pRx+node.rx,pRy+node.ry,pRz+node.rz,node.kind.ordinal()});
+            if(isRenderableSceneKind(node.kind)){
+                rows.add(new float[]{wx,wy,wz,wsx,wsy,wsz,pRx+node.rx,pRy+node.ry,pRz+node.rz,node.kind.ordinal()});
+            }
             pX=wx;pY=wy;pZ=wz;pSx=wsx;pSy=wsy;pSz=wsz;pRx+=node.rx;pRy+=node.ry;pRz+=node.rz;
         }
         for(NoirNode child:node.children)
             collectSceneNodes(child,pX,pY,pZ,pSx,pSy,pSz,pRx,pRy,pRz,rows);
+    }
+
+    private static boolean isRenderableSceneKind(NoirNode.Kind kind){
+        switch(kind){
+            case CHARACTER3D:
+            case PLAYER3D:
+            case MESH3D:
+            case SKINNED_MESH3D:
+            case COLLIDER3D:
+            case RIGID_BODY3D:
+            case STATIC_BODY3D:
+            case AREA3D:
+            case WATER3D:
+            case TERRAIN3D:
+            case FOLIAGE3D:
+            case DECAL3D:
+            case SPLINE3D:
+            case VEHICLE3D:
+                return true;
+            default:
+                return false;
+        }
     }
 
     public float[] sceneSnapshot(){return sceneSnapshot;}
