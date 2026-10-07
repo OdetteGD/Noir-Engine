@@ -9,9 +9,26 @@
 #include <cstring>
 #include <vector>
 #include <chrono>
+#include <string>
 #include <jni.h>
 
 #define NOIR_LOG(...) __android_log_print(ANDROID_LOG_INFO, "NoirGfx", __VA_ARGS__)
+
+static std::string g_lastError;
+
+static void setNativeError(const char* stage, const char* detail) {
+    g_lastError = std::string(stage) + ": " + (detail ? detail : "unknown error");
+    NOIR_LOG("%s", g_lastError.c_str());
+}
+
+static bool checkGl(const char* stage) {
+    GLenum err = glGetError();
+    if (err == GL_NO_ERROR) return true;
+    char msg[96];
+    std::snprintf(msg, sizeof(msg), "OpenGL ES error 0x%04x", static_cast<unsigned>(err));
+    setNativeError(stage, msg);
+    return false;
+}
 
 namespace noir::gfx {
 
@@ -85,12 +102,13 @@ static float terrainHeight(float x,float z){
 }
 static GLuint compile(GLenum type,const char*src){
     GLuint s=glCreateShader(type);
+    if(!s){ setNativeError("glCreateShader", "returned 0"); return 0; }
     glShaderSource(s,1,&src,nullptr);
     glCompileShader(s);
     GLint ok=0;glGetShaderiv(s,GL_COMPILE_STATUS,&ok);
     if(!ok){
         char log[2048];GLsizei n=0;glGetShaderInfoLog(s,sizeof(log),&n,log);
-        NOIR_LOG("shader compile failed: %.*s",(int)n,log);
+        setNativeError("shader compile", log);
         glDeleteShader(s);return 0;
     }
     return s;
@@ -103,7 +121,7 @@ static GLuint program(const char*vs,const char*fs){
     GLint ok=0;glGetProgramiv(p,GL_LINK_STATUS,&ok);
     if(!ok){
         char log[2048];GLsizei n=0;glGetProgramInfoLog(p,sizeof(log),&n,log);
-        NOIR_LOG("program link failed: %.*s",(int)n,log);glDeleteProgram(p);return 0;
+        setNativeError("program link", log);glDeleteProgram(p);return 0;
     }
     return p;
 }
@@ -199,6 +217,26 @@ uniform vec3 uSunDir;
 uniform float uPitch;
 uniform float uSkyMode;
 out vec4 frag;
+
+float hash21(vec2 p){
+    p=fract(p*vec2(123.34,456.21));
+    p+=dot(p,p+45.32);
+    return fract(p.x*p.y);
+}
+float noise2(vec2 p){
+    vec2 i=floor(p),f=fract(p);
+    f=f*f*(3.0-2.0*f);
+    float a=hash21(i);
+    float b=hash21(i+vec2(1.0,0.0));
+    float c=hash21(i+vec2(0.0,1.0));
+    float d=hash21(i+vec2(1.0,1.0));
+    return mix(mix(a,b,f.x),mix(c,d,f.x),f.y);
+}
+float fbm(vec2 p){
+    float v=0.0,a=0.52;
+    for(int i=0;i<4;i++){v+=noise2(p)*a;p=p*2.03+7.1;a*=0.5;}
+    return v;
+}
 void main(){
     vec2 p=uv*2.0-1.0;
     float h=clamp(uv.y,0.0,1.0);
@@ -207,7 +245,6 @@ void main(){
     float sunDot=max(dot(ray,sunDir),0.0);
     vec3 c=mix(uHorizon,uTop,pow(h,0.62));
 
-    // Physical mode: compact Rayleigh/Mie approximation tuned for mobile.
     if(uSkyMode>0.5 && uSkyMode<1.5){
         float rayleigh=pow(1.0-max(ray.y,0.0),1.65);
         float mie=pow(sunDot,8.0);
@@ -217,14 +254,24 @@ void main(){
                       vec3(1.0,0.46,0.18)*mie*0.55;
         c=mix(scatter,c,0.28);
     }else if(uSkyMode>2.5 && uSkyMode<3.5){
-        // ShaderSkyMaterial mode: stylized but physically lit by the same sun vector.
         c=mix(c,vec3(0.07,0.12,0.24),smoothstep(0.0,0.9,1.0-h));
         c+=vec3(0.55,0.30,0.16)*pow(sunDot,18.0);
     }
 
+    // Low-cost mobile cloud layer: broad billows + a high-frequency breakup.
+    float cloudLayer=smoothstep(0.47,0.73,fbm(vec2(uv.x*3.8+h*1.7,uv.y*2.5)));
+    cloudLayer*=smoothstep(0.08,0.70,uv.y);
+    cloudLayer*=uSkyMode==3.0?0.35:0.70;
+    vec3 cloudTint=vec3(0.94,0.97,1.0);
+    c=mix(c,cloudTint,cloudLayer*0.52);
+
     float disc=pow(sunDot,160.0);
-    float halo=pow(sunDot,18.0)*0.18;
-    c+=vec3(1.0,0.70,0.38)*(disc+halo);
+    float halo=pow(sunDot,18.0)*0.20;
+    c+=vec3(1.0,0.72,0.40)*(disc+halo);
+
+    // Gentle horizon haze helps large outdoor scenes read with depth.
+    float haze=smoothstep(-0.10,0.35,ray.y);
+    c=mix(c,vec3(0.60,0.72,0.86),0.06*(1.0-haze));
     frag=vec4(c,1.0);
 }
 )GLSL";
@@ -341,6 +388,8 @@ struct Renderer::Impl {
     }
 
     bool build(){
+        while(glGetError()!=GL_NO_ERROR) {}
+        g_lastError.clear();
         pbr=program(kVs,kFs);sky=program(kSkyVs,kSkyFs);
         if(!pbr||!sky)return false;
 
@@ -388,6 +437,7 @@ struct Renderer::Impl {
         }
         glGenVertexArrays(1,&skyVao);
         glEnable(GL_DEPTH_TEST);glDepthFunc(GL_LEQUAL);glDisable(GL_CULL_FACE);
+        if(!checkGl("renderer initialization")) return false;
         ready=true;return true;
     }
 
@@ -422,6 +472,7 @@ struct Renderer::Impl {
             case 17:return {0.20f,0.60f,0.27f};   // FOLIAGE3D
             case 21:return {0.65f,0.46f,0.88f};   // REFLECTION_PROBE3D
             case 24:return {0.75f,0.50f,0.25f};   // SKY3D
+            case 35:return {0.42f,0.39f,0.34f};   // ROCK3D
             default:return {0.47f,0.52f,0.60f};
         }
     }
@@ -451,7 +502,7 @@ struct Renderer::Impl {
             Vec3 color=colorForKind(n.kind);
             glUniform3f(glGetUniformLocation(pbr,"uColor"),color.x,color.y,color.z);
             glUniformMatrix4fv(glGetUniformLocation(pbr,"uModel"),1,GL_FALSE,m.m);
-            int shape=(n.kind==17)?1:(n.kind==5?2:(n.kind==16?3:(n.kind==15?4:0)));
+            int shape=(n.kind==17)?1:(n.kind==35?2:(n.kind==16?3:(n.kind==15?4:0)));
             glBindVertexArray(shapeVao[shape]);
             glDrawArrays(GL_TRIANGLES,0,shapeCount[shape]);
         }
@@ -505,7 +556,11 @@ bool Renderer::initialize(){
     if(!impl_)return false;
     impl_->destroy();
     bool ok=impl_->build();
-    if(!ok){impl_->destroy();NOIR_LOG("NoirGfx initialization failed");}
+    if(!ok){
+        if(g_lastError.empty()) setNativeError("initialize", "unknown renderer setup failure");
+        impl_->destroy();
+        NOIR_LOG("NoirGfx initialization failed: %s",g_lastError.c_str());
+    }
     return ok;
 }
 void Renderer::resize(int width,int height){
@@ -633,7 +688,8 @@ void Renderer::frameRuntime(float x,float y,float z,float yawDeg,float pitchDeg,
 }
 
 float Renderer::frameTimeMs() const{return impl_->frameMs;}
-const char* Renderer::backendInfo() const{return "NoirGFX C++ / OpenGL ES 3.0 • mobile PBR";}
+const char* Renderer::backendInfo() const{return "NoirGFX C++ / OpenGL ES 3.0 • mobile forward PBR";}
+const char* Renderer::lastError() const{return g_lastError.c_str();}
 
 
 extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_graphicsFrameRuntime
