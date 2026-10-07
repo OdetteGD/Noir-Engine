@@ -12,7 +12,7 @@ public final class NoirGraphicsBackend {
     private NoirGraphicsBackend(){}
 
     public static Type load(Context context){
-        String value=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE).getString(KEY,"GLES");
+        String value=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE).getString(KEY,"VULKAN");
         try{return Type.valueOf(value);}catch(Exception ignored){return Type.GLES;}
     }
 
