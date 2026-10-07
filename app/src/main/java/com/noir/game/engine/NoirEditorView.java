@@ -34,9 +34,17 @@ import java.util.*;
  * - Save writes the real .game scene document
  */
 public final class NoirEditorView extends android.view.View {
-    private static final int BG=0xff090d15, PANEL=0xf3161d2a, PANEL2=0xff111827;
-    private static final int BORDER=0xff2b3a55, TEXT=0xffe4eaf4, MUTED=0xff8391a9, ACCENT=0xff6f9dfd;
-    private static final int ACTIVE=0xff3f64a2, GOOD=0xff79e0a0, WARN=0xffffc766, BAD=0xffff7884;
+    private static final int BG=NoirTheme.color("background",0xff080d16);
+    private static final int PANEL=NoirTheme.color("surface",0xff111a28);
+    private static final int PANEL2=NoirTheme.color("surface2",0xff172235);
+    private static final int BORDER=NoirTheme.color("border",0xff293a55);
+    private static final int TEXT=NoirTheme.color("text",0xffedf3ff);
+    private static final int MUTED=NoirTheme.color("muted",0xff8292ad);
+    private static final int ACCENT=NoirTheme.color("accent",0xff5c8dff);
+    private static final int ACTIVE=0xff274d88;
+    private static final int GOOD=NoirTheme.color("good",0xff63e6a3);
+    private static final int WARN=NoirTheme.color("warn",0xffffc85a);
+    private static final int BAD=NoirTheme.color("bad",0xffff647d);
 
     private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
     private final EditorState state;
