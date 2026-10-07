@@ -1,7 +1,7 @@
 namespace Noir;
 
 public enum AnimationLoopMode{None,Linear,PingPong}
-public sealed class AnimationClip:Resource{public float Length{get;set;}public AnimationLoopMode LoopMode{get;set;}public bool Loop{get=>LoopMode!=AnimationLoopMode.None;set=>LoopMode=value?AnimationLoopMode.Linear:AnimationLoopMode.None;}}
+public sealed class AnimationClip:NoirResource{public float Length{get;set;}public AnimationLoopMode LoopMode{get;set;}public bool Loop{get=>LoopMode!=AnimationLoopMode.None;set=>LoopMode=value?AnimationLoopMode.Linear:AnimationLoopMode.None;}}
 public sealed class AnimationPlayer:Node
 {
     public string CurrentAnimation{get;private set;}="";public float CurrentTime{get;private set;}public float SpeedScale{get;set;}=1;public bool Playing{get;private set;}
