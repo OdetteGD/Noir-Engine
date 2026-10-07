@@ -540,6 +540,11 @@ void Renderer::frame(float yawDeg,float pitchDeg,float distance,float tx,float t
     if(!impl_->ready)return;
     auto start=std::chrono::steady_clock::now();
 
+    glViewport(0,0,impl_->width,impl_->height);
+    glDisable(GL_SCISSOR_TEST);
+    glClearColor(0.035f,0.055f,0.085f,1.0f);
+    glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+
     float yr=yawDeg*0.01745329252f,pr=pitchDeg*0.01745329252f;
     Vec3 target{tx,ty,tz};
     Vec3 cam{tx+std::cos(pr)*std::cos(yr)*distance,
