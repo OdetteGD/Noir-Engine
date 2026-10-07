@@ -18,6 +18,7 @@ public final class NoirVulkanSurface extends SurfaceView implements SurfaceHolde
     private boolean running;
     private int uploadedSceneVersion=-1;
     private int consecutiveFrameFailures;
+    private int consecutiveSuccessfulFrames;
     private float lastX,lastY,startX,startY;
     private boolean dragging,runtimeMoveTouch;
     private float pinchDistance,lastCenterX,lastCenterY;
@@ -45,7 +46,9 @@ public final class NoirVulkanSurface extends SurfaceView implements SurfaceHolde
                     a.runOnUiThread(a::recreate);
                     return;
                 }
-                if(ok)consecutiveFrameFailures=0;
+                if(ok){consecutiveFrameFailures=0;
+                    if(++consecutiveSuccessfulFrames>=120)NoirGraphicsBackend.confirmVulkan(getContext());
+                }
             } catch (Throwable ignored) {
                 if(++consecutiveFrameFailures>=3){
                     running=false;attached=false;
@@ -72,7 +75,7 @@ public final class NoirVulkanSurface extends SurfaceView implements SurfaceHolde
             boolean ok = NoirNative.vulkanAttachSurface(holder.getSurface(), getContext().getAssets());
             attached = ok;
             running = ok;
-            if (ok) { uploadedSceneVersion=-1; consecutiveFrameFailures=0; handler.post(frameLoop); }
+            if (ok) { uploadedSceneVersion=-1; consecutiveFrameFailures=0; consecutiveSuccessfulFrames=0; handler.post(frameLoop); }
             else Toast.makeText(getContext(),"Vulkan surface failed; restart with GLES.",Toast.LENGTH_LONG).show();
         } catch (Throwable ignored) {
             attached=false; running=false;
