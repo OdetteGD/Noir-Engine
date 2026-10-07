@@ -110,10 +110,12 @@ jobs:
           test -f app/src/main/cpp/noir_theme.cpp
           test -f app/src/main/java/com/noir/game/engine/NoirTheme.java
           test -f app/src/main/java/com/noir/game/engine/NoirSurface.java
+          test -f app/src/main/java/com/noir/game/engine/NoirCSharpRuntime.java
           grep -q 'graphicsInitialize' app/src/main/java/com/noir/game/engine/NoirNative.java
           grep -q 'NoirGFX C++' app/src/main/java/com/noir/game/engine/MainActivity.java
           grep -q 'assets.srcDir(noirCSharpGeneratedAssets)' app/build.gradle
           grep -q 'prepareNoirCSharpAssets' app/build.gradle
+          grep -q 'NoirCSharpRuntime.ensureInstalled' app/src/main/java/com/noir/game/engine/MainActivity.java
           test -s build/csharp/sdk/Noir.dll
           test -s build/csharp/sdk/Noir.Mobile.Scripting.Android.dll
           test -s build/csharp/sdk/Noir.Game.dll
