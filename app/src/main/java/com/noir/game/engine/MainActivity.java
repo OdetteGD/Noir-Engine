@@ -157,7 +157,71 @@ public final class MainActivity extends Activity {
                 root.add(new NoirNode("MainCamera", "MainCamera", NoirNode.Kind.CAMERA3D));
             }
         } catch (Throwable ignored) {}
+        ensureWorldGeometry(scene, root);
         return scene;
+    }
+
+    private void ensureWorldGeometry(NoirScene scene, NoirNode root){
+        boolean hasGeometry=false;
+        for(NoirNode n:scene.flatten()){
+            switch(n.kind){
+                case MESH3D: case TERRAIN3D: case FOLIAGE3D: case WATER3D: case STATIC_BODY3D:
+                case CHARACTER3D: case PLAYER3D: case VEHICLE3D: hasGeometry=true; break;
+                default: break;
+            }
+            if(hasGeometry)break;
+        }
+        if(hasGeometry)return;
+
+        NoirNode terrain=root.add(new NoirNode("Terrain_Main","Terrain_Main",NoirNode.Kind.TERRAIN3D));
+        terrain.properties.put("mesh","builtin/terrain");
+        terrain.properties.put("material","NoirTerrainPBR");
+        terrain.sx=18f; terrain.sy=0.35f; terrain.sz=18f;
+        terrain.py=-0.35f;
+
+        NoirNode water=root.add(new NoirNode("Water_Main","Water_Main",NoirNode.Kind.WATER3D));
+        water.properties.put("material","NoirWaterPBR");
+        water.sx=10f; water.sy=0.06f; water.sz=10f;
+        water.py=-0.22f; water.pz=5f;
+
+        float[][] rocks={
+            {-8f,0.55f,-5f,1.7f,0.8f,1.4f},{-4f,0.45f,-7f,1.1f,0.7f,1.0f},
+            {7f,0.75f,-6f,1.8f,1.0f,1.3f},{10f,0.42f,1f,1.0f,0.6f,1.2f},
+            {-9f,0.62f,7f,1.5f,0.9f,1.5f},{5f,0.55f,8f,1.4f,0.8f,1.1f}
+        };
+        int id=0;
+        for(float[] q:rocks){
+            NoirNode rock=root.add(new NoirNode("Rock_"+(++id),"Rock_"+id,NoirNode.Kind.MESH3D));
+            rock.properties.put("mesh","environment/rock");
+            rock.properties.put("material","RockPBR");
+            rock.px=q[0];rock.py=q[1];rock.pz=q[2];rock.sx=q[3];rock.sy=q[4];rock.sz=q[5];
+        }
+
+        float[][] trees={
+            {-11f,2.7f,-10f,1.4f},{-5f,3.0f,-11f,1.25f},{2f,3.4f,-10f,1.5f},
+            {10f,3.0f,-10f,1.3f},{13f,2.6f,-2f,1.15f},{-12f,2.9f,2f,1.3f},
+            {-9f,3.1f,10f,1.35f},{2f,3.2f,11f,1.4f},{11f,2.9f,8f,1.2f}
+        };
+        id=0;
+        for(float[] q:trees){
+            NoirNode tree=root.add(new NoirNode("Tree_"+(++id),"Tree_"+id,NoirNode.Kind.FOLIAGE3D));
+            tree.properties.put("mesh","environment/tree_oak");
+            tree.properties.put("material","FoliagePBR");
+            tree.px=q[0];tree.py=q[1];tree.pz=q[2];tree.sx=tree.sz=q[3];tree.sy=q[3]*1.8f;
+        }
+
+        for(int i=0;i<8;i++){
+            double a=i*Math.PI/4.0;
+            float x=(float)Math.cos(a)*6.5f, z=(float)Math.sin(a)*6.5f;
+            NoirNode grass=root.add(new NoirNode("Grass_"+i,"Grass_"+i,NoirNode.Kind.FOLIAGE3D));
+            grass.properties.put("mesh","environment/grass");
+            grass.properties.put("material","GrassPBR");
+            grass.px=x;grass.py=0.15f;grass.pz=z;grass.sx=grass.sz=0.9f;grass.sy=1.3f;
+        }
+        NoirNode subject=root.add(new NoirNode("EnvironmentStatue","EnvironmentStatue",NoirNode.Kind.MESH3D));
+        subject.properties.put("mesh","builtin/statue");
+        subject.properties.put("material","StonePBR");
+        subject.py=1.35f;subject.sx=1.1f;subject.sy=1.35f;subject.sz=1.1f;
     }
 
     private String readUtf8(File file) throws IOException {
