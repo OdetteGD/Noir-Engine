@@ -270,7 +270,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_com_noir_game_engine_NoirNative_vulka
 extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanShutdown(JNIEnv*,jclass){reset();}
 extern "C" JNIEXPORT jboolean JNICALL Java_com_noir_game_engine_NoirNative_vulkanDeviceReady(JNIEnv*,jclass){return g.initialized?JNI_TRUE:JNI_FALSE;}
 extern "C" JNIEXPORT jstring JNICALL Java_com_noir_game_engine_NoirNative_vulkanDeviceInfo(JNIEnv*e,jclass){if(!g.physical)return e->NewStringUTF("Vulkan GPU not attached");VkPhysicalDeviceProperties p{};vkGetPhysicalDeviceProperties(g.physical,&p);std::string s=p.deviceName;return e->NewStringUTF(s.c_str());}
-extern "C" JNIEXPORT jstring JNICALL Java_com_noir_game_engine_NoirNative_NoirNative_vulkanFeatureInfo(JNIEnv*e,jclass){
+extern "C" JNIEXPORT jstring JNICALL Java_com_noir_game_engine_NoirNative_vulkanFeatureInfo(JNIEnv*e,jclass){
     if(!g.physical)return e->NewStringUTF("Vulkan feature probe: no physical device selected");VkPhysicalDeviceFeatures f{};vkGetPhysicalDeviceFeatures(g.physical,&f);std::string s="samplerAnisotropy="+std::string(f.samplerAnisotropy?"yes":"no")+" | sampleRateShading="+std::string(f.sampleRateShading?"yes":"no");return e->NewStringUTF(s.c_str());
 }
 extern "C" JNIEXPORT jboolean JNICALL Java_com_noir_game_engine_NoirNative_vulkanAttachSurface(JNIEnv*env,jclass,jobject surface,jobject assetManager){
