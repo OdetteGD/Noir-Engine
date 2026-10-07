@@ -28,6 +28,7 @@ public final class NoirNative {
     public static native String glesBackendInfo();
     public static native boolean graphicsInitialize();
     public static native void graphicsResize(int width,int height);
+    public static native String csharpToolchainScan(String directory);
     public static native void graphicsSetScene(float[] snapshot);
     public static native void graphicsSetEnvironment(int skyMode,float exposure,float skyBrightness,float fogDensity,float sunX,float sunY,float sunZ);
     public static native void graphicsFrame(float yaw,float pitch,float distance,float targetX,float targetY,float targetZ,boolean editorMode);
