@@ -77,7 +77,7 @@ public static class Input
     public static bool IsActionJustPressed(string action)=>Pressed.Contains(action);
     public static bool IsActionJustReleased(string action)=>!Pressed.Contains(action);
     public static float GetAxis(string negative,string positive)=>(IsActionPressed(positive)?1f:0f)-(IsActionPressed(negative)?1f:0f);
-    public static Vector2 GetVector(string left,string right,string up,string down)=>new(GetAxis(left,right),GetAxis(down,up)).Normalized();
+    public static Vector2 GetVector(string left,string right,string up,string down)=>new Vector2(GetAxis(left,right),GetAxis(down,up)).Normalized();
     public static Vector2 Vector(string left,string right,string up,string down)=>GetVector(left,right,up,down);
     public static float GetAxisValue(string action)=>Axes.TryGetValue(action,out var v)?v:0f;
     public static Vector2 MousePosition=>_mousePosition;
@@ -164,7 +164,7 @@ public class Node3D:Node
     public Vector3 GlobalRotationDegrees{get=>RotationDegrees;set=>RotationDegrees=value;}
     public Transform3D Transform=>new(Basis.Identity,Position);
     public Vector3 Forward=>DirectionFromRotation(RotationDegrees);
-    public Vector3 Right=>new(MathF.Cos(Mathf.DegToRad(RotationDegrees.Y)),0,MathF.Sin(Mathf.DegToRad(RotationDegrees.Y)));
+    public Vector3 Right=>new Vector3(MathF.Cos(Mathf.DegToRad(RotationDegrees.Y)),0f,MathF.Sin(Mathf.DegToRad(RotationDegrees.Y)));
     public Vector3 Up=>Vector3.Up;
     public bool Visible{get;set;}=true;
     public void Translate(Vector3 amount)=>Position+=amount;
