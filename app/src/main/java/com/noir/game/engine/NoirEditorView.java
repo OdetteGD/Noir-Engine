@@ -159,9 +159,15 @@ public final class NoirEditorView extends android.view.View {
 
         // Subtle editor grid and viewport frame. The GPU scene remains underneath this overlay.
         p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(1);p.setColor(0x183c4d69);
-        for(float x=vl+dp(40);x<vr;x+=dp(40))c.drawLine(x,ct,x,cb,p);
-        for(float y=ct+dp(40);y<cb;y+=dp(40))c.drawLine(vl,y,vr,y,p);
-        p.setColor(0x503c4d69);c.drawRect(vl,ct,vr,cb,p);
+        if(state.grid){
+            for(float x=vl+dp(40);x<vr;x+=dp(40))c.drawLine(x,ct,x,cb,p);
+            for(float y=ct+dp(40);y<cb;y+=dp(40))c.drawLine(vl,y,vr,y,p);
+        }
+        float ox=(vl+vr)*0.5f, oy=(ct+cb)*0.5f;
+        p.setStrokeWidth(dp(1.5f));p.setColor(0x70ff6677);c.drawLine(ox,oy,ox+dp(58),oy,p);
+        p.setColor(0x7075e08a);c.drawLine(ox,oy,ox,oy-dp(44),p);
+        p.setColor(0x704d9fff);c.drawLine(ox,oy,ox-dp(42),oy+dp(32),p);
+        p.setStrokeWidth(1);p.setColor(0x503c4d69);c.drawRect(vl,ct,vr,cb,p);
         p.setStyle(Paint.Style.FILL);
 
         round(c,0xb90b111c,vl+dp(12),ct+dp(12),vl+dp(210),ct+dp(48),dp(6));
