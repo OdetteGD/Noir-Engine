@@ -97,7 +97,7 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
 
     @Override public void onSurfaceCreated(GL10 gl,EGLConfig config){
         gpuReady=false;
-        GLES30.glClearColor(0.18f,0.28f,0.42f,1f);
+        GLES30.glClearColor(0.025f,0.04f,0.065f,1f);
         GLES30.glEnable(GLES30.GL_DEPTH_TEST);
         GLES30.glEnable(GLES30.GL_CULL_FACE);
         GLES30.glCullFace(GLES30.GL_BACK);
@@ -177,7 +177,11 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
         time+=dt;
         if(mode==Mode.EDITOR) editorCamera.updateOrbit();
         if(pendingShadowRebuild){pendingShadowRebuild=false;recreateShadowMapIfReady();}
-        if(!gpuReady){GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);return;}
+        if(!gpuReady){
+            GLES30.glClearColor(0.025f,0.04f,0.065f,1f);
+            GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);
+            return;
+        }
 
         if(quality.shadows && shadowFbo!=0) renderShadowPass();
         renderMainPass();
