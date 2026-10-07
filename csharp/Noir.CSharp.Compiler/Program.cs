@@ -2,6 +2,9 @@ using System.Reflection;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
+internal static class Program
+{
+
 static int Main(string[] args)
 {
     if(args.Length == 0 || args[0] is "--help" or "-h")
@@ -74,4 +77,6 @@ static int Main(string[] args)
         Console.WriteLine("Compiled "+output);
     }
     return 0;
+}
+
 }
