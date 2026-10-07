@@ -703,9 +703,9 @@ public final class NoirEditorView extends android.view.View {
             if(f.isDirectory()){browserHistory.push(root);browserDir=f;status="Opened "+f.getName();}
             else{
                 String lower=f.getName().toLowerCase(Locale.US);
-                if(lower.endsWith(".cs")||lower.endsWith(".game")){
+                if(lower.endsWith(".cs")||lower.endsWith(".game")||lower.endsWith(".shader")||lower.endsWith(".glsl")||lower.endsWith(".vert")||lower.endsWith(".frag")){
                     NoirScriptIdeView.open(getContext(),f);
-                    status="Opened "+f.getName()+" • "+(lower.endsWith(".cs")?"C#":"Noir .game");
+                    status="Opened "+f.getName()+" • "+(lower.endsWith(".cs")?"C#":((lower.endsWith(".shader")||lower.endsWith(".glsl")||lower.endsWith(".vert")||lower.endsWith(".frag"))?"Shader":"Noir .game"));
                 }else{
                     state.log("Asset selected: "+f.getName());status="Asset "+f.getName();
                 }
