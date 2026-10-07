@@ -1,6 +1,6 @@
 name: Noir C# Mobile Scripting
 
-# .NET 10 / API 35 only. net8.0-android is EOL and must never enter the C# build graph.
+# .NET 10 / Android 35+ only. The C# build graph is checked from project metadata, not this workflow text.
 
 on:
   workflow_dispatch:
@@ -28,8 +28,9 @@ jobs:
           set -euo pipefail
           dotnet --version
           dotnet --info
-          if grep -R --line-number --fixed-strings "net8.0-android" csharp .github; then
-            echo "ERROR: EOL net8.0-android target found in the C# build graph."
+          echo "Scanning C# project metadata for obsolete Android target declarations..."
+          if grep -R --line-number -E 'net[[:space:]]*8[.]0-android' csharp --include='*.csproj' --include='*.props' --include='*.targets' --include='*.xml' --include='*.json'; then
+            echo "ERROR: obsolete Android target found in C# project metadata."
             exit 1
           fi
 
