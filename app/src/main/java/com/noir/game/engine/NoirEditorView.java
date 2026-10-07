@@ -1217,8 +1217,24 @@ public final class NoirEditorView extends android.view.View {
     }
 
     private void toolButton(Canvas c,float x,float y,float w,float h,String s,boolean active){
-        round(c,active?ACTIVE:0xff202b3d,x,y,x+w,y+h,dp(6));
-        text(c,fitLabel(s,Math.max(8,w-dp(20)),dp(9)),x+dp(10),y+dp(25),dp(9),TEXT);
+        round(c,active?ACTIVE:PANEL2,x,y,x+w,y+h,dp(6));
+        stroke(c,BORDER,dp(1),x,y,x+w,y+h,dp(6));
+        drawToolGlyph(c,s,x+dp(14),y+h*0.5f,active?BG:TEXT);
+        text(c,fitLabel(s,Math.max(8,w-dp(30)),dp(8)),x+dp(25),y+dp(23),dp(8),TEXT);
+    }
+
+    private void drawToolGlyph(Canvas c,String s,float cx,float cy,int color){
+        p.setColor(color);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(dp(1.6f));
+        if("SEL".equals(s)){Path q=new Path();q.moveTo(cx-dp(4),cy-dp(7));q.lineTo(cx+dp(5),cy);q.lineTo(cx+dp(1),cy+dp(2));q.lineTo(cx+dp(4),cy+dp(7));q.lineTo(cx+dp(1),cy+dp(8));q.lineTo(cx-dp(2),cy+dp(3));q.lineTo(cx-dp(5),cy+dp(5));q.close();c.drawPath(q,p);}
+        else if("MOVE".equals(s)){c.drawLine(cx-dp(7),cy,cx+dp(7),cy,p);c.drawLine(cx,cy-dp(7),cx,cy+dp(7),p);c.drawLine(cx+dp(7),cy,cx+dp(4),cy-dp(3),p);c.drawLine(cx+dp(7),cy,cx+dp(4),cy+dp(3),p);c.drawLine(cx-dp(7),cy,cx-dp(4),cy-dp(3),p);c.drawLine(cx-dp(7),cy,cx-dp(4),cy+dp(3),p);c.drawLine(cx,cy-dp(7),cx-dp(3),cy-dp(4),p);c.drawLine(cx,cy-dp(7),cx+dp(3),cy-dp(4),p);c.drawLine(cx,cy+dp(7),cx-dp(3),cy+dp(4),p);c.drawLine(cx,cy+dp(7),cx+dp(3),cy+dp(4),p);}
+        else if("ROT".equals(s)){c.drawArc(cx-dp(6),cy-dp(6),cx+dp(6),cy+dp(6),-50,285,false,p);Path q=new Path();q.moveTo(cx+dp(6),cy-dp(4));q.lineTo(cx+dp(7),cy+dp(1));q.lineTo(cx+dp(2),cy-dp(1));c.drawPath(q,p);}
+        else if("SCALE".equals(s)){c.drawRect(cx-dp(5),cy-dp(5),cx+dp(5),cy+dp(5),p);c.drawLine(cx-dp(8),cy-dp(8),cx-dp(5),cy-dp(8),p);c.drawLine(cx-dp(8),cy-dp(8),cx-dp(8),cy-dp(5),p);c.drawLine(cx+dp(8),cy+dp(8),cx+dp(5),cy+dp(8),p);c.drawLine(cx+dp(8),cy+dp(8),cx+dp(8),cy+dp(5),p);}
+        else if("PLAY".equals(s)){Path q=new Path();q.moveTo(cx-dp(3),cy-dp(6));q.lineTo(cx+dp(6),cy);q.lineTo(cx-dp(3),cy+dp(6));q.close();c.drawPath(q,p);}
+        else if("STOP".equals(s)){c.drawRect(cx-dp(5),cy-dp(5),cx+dp(5),cy+dp(5),p);}
+        else if("SAVE".equals(s)){c.drawRect(cx-dp(6),cy-dp(6),cx+dp(6),cy+dp(6),p);c.drawRect(cx-dp(3),cy-dp(5),cx+dp(3),cy-dp(1),p);c.drawLine(cx-dp(3),cy+dp(1),cx+dp(3),cy+dp(1),p);}
+        else if("BUILD".equals(s)){c.drawRect(cx-dp(6),cy-dp(5),cx+dp(6),cy+dp(5),p);c.drawLine(cx-dp(4),cy-dp(7),cx+dp(4),cy-dp(7),p);c.drawLine(cx-dp(3),cy-dp(8),cx+dp(3),cy-dp(8),p);}
+        else if("RESET CAM".equals(s)){c.drawArc(cx-dp(6),cy-dp(6),cx+dp(6),cy+dp(6),25,300,false,p);Path q=new Path();q.moveTo(cx+dp(6),cy-dp(5));q.lineTo(cx+dp(7),cy+dp(1));q.lineTo(cx+dp(2),cy- dp(1));c.drawPath(q,p);}
+        p.setStyle(Paint.Style.FILL);
     }
 
     private void drawNodeIcon(Canvas c,NoirNode.Kind k,float cx,float cy,float size,int color){
