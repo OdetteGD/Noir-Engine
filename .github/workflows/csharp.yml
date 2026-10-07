@@ -40,11 +40,17 @@ jobs:
       - name: Verify Android workload
         run: dotnet workload list
 
+      - name: Build authoritative Noir API
+        run: dotnet build csharp/Noir.csproj --configuration Release
+
       - name: Restore compiler host
         run: dotnet restore csharp/Noir.CSharp.Compiler/Noir.CSharp.Compiler.csproj
 
       - name: Build Roslyn compiler host
         run: dotnet build csharp/Noir.CSharp.Compiler/Noir.CSharp.Compiler.csproj --configuration Release --no-restore
+
+      - name: Build authoritative Noir API
+        run: dotnet build csharp/Noir.csproj --configuration Release
 
       - name: Build mobile C# SDK
         run: dotnet build csharp/Noir.Mobile.Scripting/Noir.Mobile.Scripting.csproj -f net10.0-android36.1 --configuration Release
