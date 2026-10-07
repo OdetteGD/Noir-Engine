@@ -579,10 +579,7 @@ void Renderer::frame(float yawDeg,float pitchDeg,float distance,float tx,float t
     Vec3 sun=impl_->sunDir;
     Vec3 skyColor=impl_->skyColor();
 
-    // Ground tiles.
-    impl_->drawCubeRange(0,49*36,vp,{0.19f,0.29f,0.22f},0.88f,0.02f,cam,sun,skyColor);
-    impl_->drawCubeRange(49*36,5*36,vp,{0.22f,0.32f,0.46f},0.48f,0.14f,cam,sun,skyColor);
-    impl_->drawCubeRange(54*36,20*36,vp,{0.30f,0.20f,0.11f},0.78f,0.01f,cam,sun,skyColor);
+    // The synchronized scene (or the native shared fallback) is the complete world.
     impl_->drawSceneInstances(vp,cam);
 
     glDisable(GL_CULL_FACE);
