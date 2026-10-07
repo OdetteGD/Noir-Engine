@@ -129,5 +129,4 @@ public final class MainActivity extends Activity {
             return out.toString(StandardCharsets.UTF_8.name());
         }
     }
-    }
 }
