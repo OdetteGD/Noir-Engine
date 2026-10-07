@@ -21,6 +21,7 @@ public:
     float frameTimeMs() const;
     const char* backendInfo() const;
     const char* lastError() const;
+    bool safeMode() const;
 
 private:
     struct Impl;
