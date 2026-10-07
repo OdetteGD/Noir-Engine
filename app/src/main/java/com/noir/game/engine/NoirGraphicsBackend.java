@@ -28,4 +28,20 @@ public final class NoirGraphicsBackend {
     public static String status(){
         try{return NoirNative.vulkanStatus();}catch(Throwable ignored){return "Vulkan probe unavailable";}
     }
+
+    public static boolean initializeVulkanStage(){
+        try{return NoirNative.vulkanInitialize();}catch(Throwable ignored){return false;}
+    }
+
+    public static void shutdownVulkanStage(){
+        try{NoirNative.vulkanShutdown();}catch(Throwable ignored){}
+    }
+
+    public static boolean vulkanDeviceReady(){
+        try{return NoirNative.vulkanDeviceReady();}catch(Throwable ignored){return false;}
+    }
+
+    public static String vulkanDeviceInfo(){
+        try{return NoirNative.vulkanDeviceInfo();}catch(Throwable ignored){return "Vulkan device info unavailable";}
+    }
 }
