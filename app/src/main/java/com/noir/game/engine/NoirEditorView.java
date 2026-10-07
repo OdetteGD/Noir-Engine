@@ -1012,7 +1012,7 @@ public final class NoirEditorView extends android.view.View {
     }
 
     private void addNode(){
-        String[] names={"Node3D","Character3D","Player3D","Camera3D","Light3D","Mesh3D","SkinnedMesh3D","Collider3D","RigidBody3D","StaticBody3D","Area3D","RayCast3D","Audio3D","Particles3D","Decal3D","Water3D","Terrain3D","Foliage3D","Spline3D","NavMesh3D","NavAgent3D","ReflectionProbe3D","LightProbe3D","WorldEnvironment","Sky3D","FogVolume3D","PostProcess3D","LODGroup3D","Occluder3D","AnimationPlayer","AnimationTree","BoneAttachment3D","IKTarget3D","Vehicle3D","SpringArm3D","UI3D"};
+        String[] names={"Node3D","Character3D","Player3D","Camera3D","Light3D","Mesh3D","SkinnedMesh3D","Collider3D","RigidBody3D","StaticBody3D","Area3D","RayCast3D","Audio3D","Particles3D","Decal3D","Water3D","Terrain3D","Foliage3D","Spline3D","NavMesh3D","NavAgent3D","ReflectionProbe3D","LightProbe3D","WorldEnvironment","Sky3D","FogVolume3D","PostProcess3D","LODGroup3D","Occluder3D","AnimationPlayer","AnimationTree","BoneAttachment3D","IKTarget3D","Vehicle3D","SpringArm3D","UI3D","Rock3D"};
         new AlertDialog.Builder(getContext()).setTitle("Add Node").setItems(names,(d,which)->{
             try{addNodeKind(NoirNode.Kind.valueOf(names[which].toUpperCase(Locale.US)));}catch(Exception ex){addNodeKind(NoirNode.Kind.NODE3D);}
         }).show();
