@@ -25,6 +25,13 @@ public final class SceneSerializer {
         indent(out,depth+1).append(String.format(Locale.US,"scale = (%.5f, %.5f, %.5f)\n",n.sx,n.sy,n.sz));
         indent(out,depth+1).append("visible = ").append(n.visible).append('\n');
         indent(out,depth+1).append("locked = ").append(n.locked).append('\n');
+        if(n.kind==NoirNode.Kind.WORLD_ENVIRONMENT){
+            for(Map.Entry<String,String> e:scene.environment.entrySet()){
+                if(e.getKey()==null||e.getValue()==null||e.getKey().isEmpty())continue;
+                if(n.properties.containsKey(e.getKey()))continue;
+                indent(out,depth+1).append(e.getKey()).append(" = ").append(e.getValue()).append('\n');
+            }
+        }
         for(Map.Entry<String,String> e:n.properties.entrySet()){
             if(e.getKey()==null||e.getKey().equals("type")||e.getKey().equals("position")||e.getKey().equals("rotation")||e.getKey().equals("scale"))continue;
             indent(out,depth+1).append(e.getKey()).append(" = ").append(e.getValue()==null?"":e.getValue()).append('\n');
