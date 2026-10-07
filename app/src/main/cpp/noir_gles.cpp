@@ -14,6 +14,11 @@ Java_com_noir_game_engine_NoirNative_graphicsLastError(JNIEnv* env, jclass) {
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
+Java_com_noir_game_engine_NoirNative_graphicsSafeMode(JNIEnv*, jclass) {
+    return g_renderer.safeMode() ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
 Java_com_noir_game_engine_NoirNative_graphicsInitialize(JNIEnv*, jclass) {
     return g_renderer.initialize() ? JNI_TRUE : JNI_FALSE;
 }
