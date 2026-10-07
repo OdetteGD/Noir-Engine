@@ -27,7 +27,7 @@ struct Runtime {
     VkSemaphore imageAvailable=VK_NULL_HANDLE;
     VkSemaphore renderFinished=VK_NULL_HANDLE;
     VkFence inFlight=VK_NULL_HANDLE;
-    VkFramebuffer framebuffer=VK_NULL_HANDLE;
+    VkImage images[8]{};\n    VkImageView views[8]{};\n    VkFramebuffer framebuffers[8]{};\n    uint32_t imageCount=0;
     VkPhysicalDeviceProperties props{};
     uint32_t apiVersion=VK_API_VERSION_1_0;
     ANativeWindow* window=nullptr;
@@ -54,7 +54,11 @@ bool hasDeviceExt(VkPhysicalDevice d,const char* n){
 }
 void destroySwapchain(){
     if(g.device!=VK_NULL_HANDLE)vkDeviceWaitIdle(g.device);
-    if(g.framebuffer){vkDestroyFramebuffer(g.device,g.framebuffer,nullptr);g.framebuffer=VK_NULL_HANDLE;}
+    for(uint32_t i=0;i<g.imageCount&&i<8;i++){
+        if(g.framebuffers[i]){vkDestroyFramebuffer(g.device,g.framebuffers[i],nullptr);g.framebuffers[i]=VK_NULL_HANDLE;}
+        if(g.views[i]){vkDestroyImageView(g.device,g.views[i],nullptr);g.views[i]=VK_NULL_HANDLE;}
+    }
+    g.imageCount=0;
     if(g.renderPass){vkDestroyRenderPass(g.device,g.renderPass,nullptr);g.renderPass=VK_NULL_HANDLE;}
     if(g.commandPool){vkDestroyCommandPool(g.device,g.commandPool,nullptr);g.commandPool=VK_NULL_HANDLE;}
     if(g.imageAvailable){vkDestroySemaphore(g.device,g.imageAvailable,nullptr);g.imageAvailable=VK_NULL_HANDLE;}
@@ -142,14 +146,16 @@ bool createRenderTargets(){
     VkSubpassDescription sub{};sub.pipelineBindPoint=VK_PIPELINE_BIND_POINT_GRAPHICS;sub.colorAttachmentCount=1;sub.pColorAttachments=&ref;
     VkRenderPassCreateInfo rp{VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};rp.attachmentCount=1;rp.pAttachments=&color;rp.subpassCount=1;rp.pSubpasses=&sub;
     if(vkCreateRenderPass(g.device,&rp,nullptr,&g.renderPass)!=VK_SUCCESS)return false;
-    uint32_t count=0;vkGetSwapchainImagesKHR(g.device,g.swapchain,&count,nullptr);if(!count)return false;
-    VkImage* images=new VkImage[count];vkGetSwapchainImagesKHR(g.device,g.swapchain,&count,images);
-    VkImageViewCreateInfo iv{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};iv.viewType=VK_IMAGE_VIEW_TYPE_2D;iv.format=g.format;iv.subresourceRange.aspectMask=VK_IMAGE_ASPECT_COLOR_BIT;iv.subresourceRange.levelCount=1;iv.subresourceRange.layerCount=1;iv.image=images[0];
-    VkImageView view=VK_NULL_HANDLE;bool ok=vkCreateImageView(g.device,&iv,nullptr,&view)==VK_SUCCESS;delete[] images;if(!ok)return false;
-    VkFramebufferCreateInfo fb{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};fb.renderPass=g.renderPass;fb.attachmentCount=1;fb.pAttachments=&view;fb.width=g.extent.width;fb.height=g.extent.height;fb.layers=1;
-    ok=vkCreateFramebuffer(g.device,&fb,nullptr,&g.framebuffer)==VK_SUCCESS;
-    vkDestroyImageView(g.device,view,nullptr);
-    if(!ok)return false;
+    uint32_t count=0;vkGetSwapchainImagesKHR(g.device,g.swapchain,&count,nullptr);if(!count||count>8)return false;
+    g.imageCount=count;vkGetSwapchainImagesKHR(g.device,g.swapchain,&count,g.images);
+    VkImageViewCreateInfo iv{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};iv.viewType=VK_IMAGE_VIEW_TYPE_2D;iv.format=g.format;iv.subresourceRange.aspectMask=VK_IMAGE_ASPECT_COLOR_BIT;iv.subresourceRange.levelCount=1;iv.subresourceRange.layerCount=1;
+    VkFramebufferCreateInfo fb{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};fb.renderPass=g.renderPass;fb.attachmentCount=1;fb.width=g.extent.width;fb.height=g.extent.height;fb.layers=1;
+    for(uint32_t i=0;i<g.imageCount;i++){
+        iv.image=g.images[i];
+        if(vkCreateImageView(g.device,&iv,nullptr,&g.views[i])!=VK_SUCCESS)return false;
+        fb.pAttachments=&g.views[i];
+        if(vkCreateFramebuffer(g.device,&fb,nullptr,&g.framebuffers[i])!=VK_SUCCESS)return false;
+    }
     VkCommandPoolCreateInfo cp{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};cp.queueFamilyIndex=g.graphicsFamily;cp.flags=VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     if(vkCreateCommandPool(g.device,&cp,nullptr,&g.commandPool)!=VK_SUCCESS)return false;
     VkCommandBufferAllocateInfo ca{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};ca.commandPool=g.commandPool;ca.level=VK_COMMAND_BUFFER_LEVEL_PRIMARY;ca.commandBufferCount=1;
@@ -194,7 +200,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_com_noir_game_engine_NoirNative_vulka
     vkResetFences(g.device,1,&g.inFlight);vkResetCommandBuffer(g.commandBuffer,0);
     VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};if(vkBeginCommandBuffer(g.commandBuffer,&bi)!=VK_SUCCESS)return JNI_FALSE;
     VkClearValue clear{};clear.color.float32[0]=0.06f;clear.color.float32[1]=0.10f;clear.color.float32[2]=0.16f;clear.color.float32[3]=1.0f;
-    VkRenderPassBeginInfo rp{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};rp.renderPass=g.renderPass;rp.framebuffer=g.framebuffer;rp.renderArea.extent=g.extent;rp.clearValueCount=1;rp.pClearValues=&clear;
+    VkRenderPassBeginInfo rp{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};rp.renderPass=g.renderPass;rp.framebuffer=g.framebuffers[image];rp.renderArea.extent=g.extent;rp.clearValueCount=1;rp.pClearValues=&clear;
     vkCmdBeginRenderPass(g.commandBuffer,&rp,VK_SUBPASS_CONTENTS_INLINE);vkCmdEndRenderPass(g.commandBuffer);if(vkEndCommandBuffer(g.commandBuffer)!=VK_SUCCESS)return JNI_FALSE;
     VkPipelineStageFlags stage=VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     VkSubmitInfo si{VK_STRUCTURE_TYPE_SUBMIT_INFO};si.waitSemaphoreCount=1;si.pWaitSemaphores=&g.imageAvailable;si.pWaitDstStageMask=&stage;si.commandBufferCount=1;si.pCommandBuffers=&g.commandBuffer;si.signalSemaphoreCount=1;si.pSignalSemaphores=&g.renderFinished;
