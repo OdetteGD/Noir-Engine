@@ -171,7 +171,7 @@ public class Node3D:Node
     public void RotateY(float radians)=>RotationDegrees=new(RotationDegrees.X,RotationDegrees.Y+Mathf.RadToDeg(radians),RotationDegrees.Z);
     public void LookAt(Vector3 target){var d=(target-Position).Normalized();if(d.LengthSquared()<1e-8f)return;RotationDegrees=new Vector3(Mathf.RadToDeg(MathF.Asin(Math.Clamp(d.Y,-1f,1f))),Mathf.RadToDeg(MathF.Atan2(-d.X,-d.Z)),0f);}
     public T AddComponent<T>() where T:Component,new(){var c=new T{Owner=this};return c;}
-    private static Vector3 DirectionFromRotation(Vector3 r){var yaw=Mathf.DegToRad(r.Y);var pitch=Mathf.DegToRad(r.X);var cp=MathF.Cos(pitch);return new(-MathF.Sin(yaw)*cp,MathF.Sin(pitch),-MathF.Cos(yaw)*cp).Normalized();}
+    private static Vector3 DirectionFromRotation(Vector3 r){var yaw=Mathf.DegToRad(r.Y);var pitch=Mathf.DegToRad(r.X);var cp=MathF.Cos(pitch);return new Vector3(-MathF.Sin(yaw)*cp,MathF.Sin(pitch),-MathF.Cos(yaw)*cp).Normalized();}
 }
 
 public class Node2D:Node
