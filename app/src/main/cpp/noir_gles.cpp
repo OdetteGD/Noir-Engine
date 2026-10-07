@@ -8,6 +8,11 @@ Java_com_noir_game_engine_NoirNative_glesBackendInfo(JNIEnv* env, jclass) {
     return env->NewStringUTF(g_renderer.backendInfo());
 }
 
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_noir_game_engine_NoirNative_graphicsLastError(JNIEnv* env, jclass) {
+    return env->NewStringUTF(g_renderer.lastError());
+}
+
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_noir_game_engine_NoirNative_graphicsInitialize(JNIEnv*, jclass) {
     return g_renderer.initialize() ? JNI_TRUE : JNI_FALSE;
