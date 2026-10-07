@@ -6,7 +6,7 @@ public sealed class EditorToolState
 {
     public EditorToolMode Mode{get;set;}=EditorToolMode.Select;
     public GizmoAxis Axis{get;set;}=GizmoAxis.None;
-    public float GridSnap{get;set;}.25f;
+    public float GridSnap{get;set;}=.25f;
     public float AngleSnapDegrees{get;set;}=15;
     public bool SnapEnabled{get;set;}=true;
 }
