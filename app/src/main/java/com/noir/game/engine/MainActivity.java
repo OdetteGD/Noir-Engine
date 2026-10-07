@@ -32,12 +32,21 @@ public final class MainActivity extends Activity {
             NoirScene scene=loadProjectScene(projectPath);
             EditorState editor=new EditorState(scene,projectPath);
             renderer=new NoirRenderer();
-
-            NoirSurface surface=new NoirSurface(this,renderer);
+            NoirGraphicsBackend.Type selectedBackend=NoirGraphicsBackend.load(this);
+            NoirViewport surface;
+            if(selectedBackend==NoirGraphicsBackend.Type.VULKAN && NoirGraphicsBackend.vulkanAvailable()){
+                NoirGraphicsBackend.initializeVulkanStage();
+                renderer.setGraphicsBackend(NoirRenderer.GraphicsBackend.VULKAN);
+                surface=new NoirVulkanSurface(this);
+            }else{
+                if(selectedBackend==NoirGraphicsBackend.Type.VULKAN) NoirGraphicsBackend.save(this,NoirGraphicsBackend.Type.GLES);
+                renderer.setGraphicsBackend(NoirRenderer.GraphicsBackend.GLES);
+                surface=new NoirSurface(this,renderer);
+            }
             editorUi=new NoirEditorView(this,editor,renderer,surface);
 
             FrameLayout root=new FrameLayout(this);
-            root.addView(surface,new FrameLayout.LayoutParams(-1,-1));
+            root.addView((android.view.View)surface,new FrameLayout.LayoutParams(-1,-1));
             root.addView(editorUi,new FrameLayout.LayoutParams(-1,-1));
             setContentView(root);
         } catch(Throwable openError) {
