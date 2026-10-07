@@ -17,6 +17,7 @@ public final class NoirVulkanSurface extends SurfaceView implements SurfaceHolde
     private boolean attached;
     private boolean running;
     private int uploadedSceneVersion=-1;
+    private int consecutiveFrameFailures;
     private final Runnable frameLoop = new Runnable() {
         @Override public void run() {
             if (!running || !attached) return;
@@ -32,8 +33,25 @@ public final class NoirVulkanSurface extends SurfaceView implements SurfaceHolde
                         renderer.environmentSkyBrightness(),renderer.environmentFogDensity(),
                         sun[0],sun[1],sun[2]);
                 NoirNative.vulkanSetQuality(renderer.nativeQualityTier());
-                NoirNative.vulkanDrawFrame();
-            } catch (Throwable ignored) {}
+                boolean ok=NoirNative.vulkanDrawFrame();
+                if(!ok && ++consecutiveFrameFailures>=3){
+                    running=false;attached=false;
+                    try { NoirNative.vulkanDetachSurface(); } catch(Throwable ignored) {}
+                    NoirGraphicsBackend.save(getContext(),NoirGraphicsBackend.Type.GLES);
+                    android.app.Activity a=(android.app.Activity)getContext();
+                    a.runOnUiThread(a::recreate);
+                    return;
+                }
+                if(ok)consecutiveFrameFailures=0;
+            } catch (Throwable ignored) {
+                if(++consecutiveFrameFailures>=3){
+                    running=false;attached=false;
+                    try { NoirNative.vulkanDetachSurface(); } catch(Throwable ignored2) {}
+                    NoirGraphicsBackend.save(getContext(),NoirGraphicsBackend.Type.GLES);
+                    ((android.app.Activity)getContext()).runOnUiThread(() -> ((android.app.Activity)getContext()).recreate());
+                    return;
+                }
+            }
             handler.postDelayed(this, 16L);
         }
     };
@@ -51,7 +69,7 @@ public final class NoirVulkanSurface extends SurfaceView implements SurfaceHolde
             boolean ok = NoirNative.vulkanAttachSurface(holder.getSurface(), getContext().getAssets());
             attached = ok;
             running = ok;
-            if (ok) { uploadedSceneVersion=-1; handler.post(frameLoop); }
+            if (ok) { uploadedSceneVersion=-1; consecutiveFrameFailures=0; handler.post(frameLoop); }
             else Toast.makeText(getContext(),"Vulkan surface failed; restart with GLES.",Toast.LENGTH_LONG).show();
         } catch (Throwable ignored) {
             attached=false; running=false;
