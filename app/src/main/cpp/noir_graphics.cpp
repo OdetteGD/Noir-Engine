@@ -8,6 +8,7 @@
 #include <cstring>
 #include <vector>
 #include <chrono>
+#include <jni.h>
 
 #define NOIR_LOG(...) __android_log_print(ANDROID_LOG_INFO, "NoirGfx", __VA_ARGS__)
 
@@ -372,8 +373,13 @@ struct Renderer::Impl {
     }
 };
 
-Renderer::Renderer():impl_(new Impl()){}
-Renderer::~Renderer(){ if(impl_){ impl_->destroy(); delete impl_; impl_=nullptr; } }
+static Renderer* gRenderer=nullptr;
+
+Renderer::Renderer():impl_(new Impl()){gRenderer=this;}
+Renderer::~Renderer(){
+    if(gRenderer==this)gRenderer=nullptr;
+    if(impl_){ impl_->destroy(); delete impl_; impl_=nullptr; }
+}
 
 void Renderer::shutdown(){ if(impl_) impl_->destroy(); }
 
@@ -387,6 +393,27 @@ bool Renderer::initialize(){
 void Renderer::resize(int width,int height){
     impl_->width=std::max(1,width);impl_->height=std::max(1,height);
     glViewport(0,0,impl_->width,impl_->height);
+}
+void Renderer::setScene(const float* snapshot,int floatCount){
+    std::vector<SceneInstance> next;
+    if(snapshot&&floatCount>=10){
+        int count=std::min(floatCount/10,256);
+        next.reserve(count);
+        for(int i=0;i<count;i++){
+            const float* p=snapshot+i*10;
+            SceneInstance n{};
+            n.x=p[0];n.y=p[1];n.z=p[2];
+            n.sx=p[3];n.sy=p[4];n.sz=p[5];
+            n.rx=p[6];n.ry=p[7];n.rz=p[8];
+            n.kind=static_cast<int>(std::lround(p[9]));
+            next.push_back(n);
+        }
+    }
+    impl_->setScene(next);
+}
+void Renderer::setEnvironment(int skyMode,float exposure,float skyBrightness,float fogDensity,
+                              float sunX,float sunY,float sunZ){
+    impl_->setEnvironment(skyMode,exposure,skyBrightness,fogDensity,{sunX,sunY,sunZ});
 }
 void Renderer::frame(float yawDeg,float pitchDeg,float distance,float tx,float ty,float tz,bool editorMode){
     if(!impl_->ready)return;
@@ -425,8 +452,8 @@ void Renderer::frame(float yawDeg,float pitchDeg,float distance,float tx,float t
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);
     glClear(GL_DEPTH_BUFFER_BIT);
-    Vec3 sun{-0.38f,-0.82f,-0.32f};
-    Vec3 skyColor{0.36f,0.50f,0.72f};
+    Vec3 sun=impl_->sunDir;
+    Vec3 skyColor=impl_->skyColor();
 
     // Ground tiles.
     impl_->drawCubeRange(0,49*36,vp,{0.19f,0.29f,0.22f},0.88f,0.02f,cam,sun,skyColor);
@@ -463,5 +490,23 @@ void Renderer::frame(float yawDeg,float pitchDeg,float distance,float tx,float t
 }
 float Renderer::frameTimeMs() const{return impl_->frameMs;}
 const char* Renderer::backendInfo() const{return "NoirGFX C++ / OpenGL ES 3.0 • mobile PBR";}
+
+
+extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_graphicsSetScene
+  (JNIEnv* env,jclass,jfloatArray snapshot){
+    if(!gRenderer||!snapshot)return;
+    jsize len=env->GetArrayLength(snapshot);
+    if(len<=0){gRenderer->setScene(nullptr,0);return;}
+    std::vector<jfloat> data(static_cast<size_t>(len));
+    env->GetFloatArrayRegion(snapshot,0,len,data.data());
+    gRenderer->setScene(data.data(),static_cast<int>(len));
+}
+
+extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_graphicsSetEnvironment
+  (JNIEnv*,jclass,jint skyMode,jfloat exposure,jfloat brightness,jfloat fogDensity,
+   jfloat sunX,jfloat sunY,jfloat sunZ){
+    if(!gRenderer)return;
+    gRenderer->setEnvironment(skyMode,exposure,brightness,fogDensity,sunX,sunY,sunZ);
+}
 
 } // namespace noir::gfx
