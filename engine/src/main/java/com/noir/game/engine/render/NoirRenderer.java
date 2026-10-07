@@ -91,6 +91,7 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
     public String graphicsBackendStatus(){return backend==GraphicsBackend.VULKAN?"VULKAN • native backend / safe GLES fallback":"GLES 3.0 • Forward PBR";}
 
     @Override public void onSurfaceCreated(GL10 gl,EGLConfig config){
+        gpuReady=false;
         GLES30.glClearColor(0.02f,0.03f,0.055f,1f);
         GLES30.glEnable(GLES30.GL_DEPTH_TEST);
         GLES30.glEnable(GLES30.GL_CULL_FACE);
@@ -98,9 +99,20 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
         GLES30.glDepthFunc(GLES30.GL_LEQUAL);
         GLES30.glBlendFunc(GLES30.GL_SRC_ALPHA,GLES30.GL_ONE_MINUS_SRC_ALPHA);
 
-        mainProgram=link(mainVertex(),mainFragment());
-        skyProgram=link(skyVertex(),skyFragment());
-        shadowProgram=link(shadowVertex(),shadowFragment());
+        try {
+            mainProgram=link(mainVertex(),mainFragment());
+            skyProgram=link(skyVertex(),skyFragment());
+            shadowProgram=link(shadowVertex(),shadowFragment());
+        } catch(Throwable shaderFailure) {
+            deleteProgramSafe(mainProgram);
+            deleteProgramSafe(skyProgram);
+            deleteProgramSafe(shadowProgram);
+            mainProgram=0; skyProgram=0; shadowProgram=0;
+            quality.shadows=false;
+            lastNanos=System.nanoTime();
+            frameTimeMs=0f;
+            return;
+        }
 
         uModel=GLES30.glGetUniformLocation(mainProgram,"uModel");
         uViewProj=GLES30.glGetUniformLocation(mainProgram,"uViewProj");
@@ -139,6 +151,7 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
         buildSceneModels();
         lastNanos=System.nanoTime();
         frameTimeMs=0f;
+        gpuReady=true;
     }
 
     @Override public void onSurfaceChanged(GL10 gl,int w,int h){
@@ -159,6 +172,8 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
         if(quality.shadows && shadowFbo!=0) renderShadowPass();
         renderMainPass();
     }
+
+    private void deleteProgramSafe(int id){if(id!=0)try{GLES30.glDeleteProgram(id);}catch(Throwable ignored){}}
 
     public Camera camera(){return editorCamera;}
     public RuntimeCamera runtimeCamera(){return runtimeCamera;}
