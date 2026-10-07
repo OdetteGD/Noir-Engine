@@ -169,16 +169,16 @@ public final class MainActivity extends Activity {
     }
 
     private void ensureWorldGeometry(NoirScene scene, NoirNode root){
-        boolean hasGeometry=false;
+        boolean hasWorldGeometry=false;
         for(NoirNode n:scene.flatten()){
             switch(n.kind){
-                case MESH3D: case TERRAIN3D: case FOLIAGE3D: case WATER3D: case STATIC_BODY3D:
-                case CHARACTER3D: case PLAYER3D: case VEHICLE3D: hasGeometry=true; break;
+                case MESH3D: case TERRAIN3D: case FOLIAGE3D: case WATER3D:
+                case STATIC_BODY3D: case RIGID_BODY3D: hasWorldGeometry=true; break;
                 default: break;
             }
-            if(hasGeometry)break;
+            if(hasWorldGeometry)break;
         }
-        if(hasGeometry)return;
+        if(hasWorldGeometry)return;
 
         NoirNode terrain=root.add(new NoirNode("Terrain_Main","Terrain_Main",NoirNode.Kind.TERRAIN3D));
         terrain.properties.put("mesh","builtin/terrain");
