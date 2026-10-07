@@ -1,0 +1,133 @@
+<!doctype html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width,height=device-height,initial-scale=1,maximum-scale=1,user-scalable=no">
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b1220}
+canvas{display:block;width:100%;height:100%}
+#boot{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#9fb5d8;font:12px sans-serif;background:linear-gradient(#182a46,#0b1220);letter-spacing:.08em}
+</style>
+</head>
+<body>
+<div id="boot">NOIR 3D • INITIALIZING WEBGL2</div>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js';
+
+const boot=document.getElementById('boot');
+let renderer,scene,camera,world,grid,sun,raf=0,runtime=false;
+const target=new THREE.Vector3(0,1.4,0);
+const tmp=new THREE.Vector3();
+
+function height(x,z){
+  return 0.35*Math.sin(x*0.42)+0.24*Math.cos(z*0.31)+0.18*Math.sin((x+z)*0.73)+0.10*Math.cos((x-z)*1.21);
+}
+function mat(color,rough=.75,metal=0){
+  return new THREE.MeshStandardMaterial({color,roughness:rough,metalness:metal});
+}
+function cube(x,y,z,sx,sy,sz,color,rough=.7,metal=0){
+  const m=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),mat(color,rough,metal));
+  m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;world.add(m);return m;
+}
+function makeTree(x,z,scale=1){
+  const y=height(x,z);
+  const trunk=cube(x,y+1.0*scale,z,.34*scale,2*scale,.34*scale,0x5b3c25,.9,0);
+  const crown=new THREE.Mesh(new THREE.SphereGeometry(1.15*scale,16,12),mat(0x315b3b,.92,0));
+  crown.position.set(x,y+2.15*scale,z);crown.scale.y=1.15;crown.castShadow=true;crown.receiveShadow=true;world.add(crown);
+}
+function buildWorld(){
+  world=new THREE.Group();scene.add(world);
+
+  const terrainGeo=new THREE.PlaneGeometry(44,44,48,48);
+  terrainGeo.rotateX(-Math.PI/2);
+  const pos=terrainGeo.attributes.position;
+  for(let i=0;i<pos.count;i++){
+    const x=pos.getX(i),z=pos.getZ(i);pos.setY(i,height(x,z));
+  }
+  terrainGeo.computeVertexNormals();
+  const terrain=new THREE.Mesh(terrainGeo,mat(0x354b3a,.86,0.02));
+  terrain.receiveShadow=true;terrain.castShadow=false;world.add(terrain);
+
+  grid=new THREE.GridHelper(44,44,0x58709a,0x26354d);
+  grid.position.y=.035;world.add(grid);
+  const axes=new THREE.AxesHelper(3.5);axes.position.y=.055;world.add(axes);
+
+  cube(0,1.0,0,3.2,2,3.2,0x496f9b,.42,.12);
+  cube(-7.5,1.0,-7.5,2.2,2,2.2,0x8b6a45,.58,.05);
+  cube(7.5,1.2,-7.5,2.6,2.4,2.6,0x5b718c,.5,.12);
+  cube(-7.5,.9,7.5,2.0,1.8,2.0,0x73553b,.72,.02);
+  cube(7.5,1.05,7.5,2.4,2.1,2.4,0x4f626e,.56,.16);
+
+  [[-10,-2,1.0],[-5,-9,.8],[5,-8,1.1],[10,-2,.9],[-10,7,.9],[9,9,1.0],[2,10,.75],[-2,-12,.9]]
+    .forEach(v=>makeTree(v[0],v[1],v[2]));
+
+  for(let i=0;i<16;i++){
+    const a=i*Math.PI*2/16,r=14+((i*37)%7);
+    const x=Math.cos(a)*r,z=Math.sin(a)*r,y=height(x,z);
+    const s=.35+((i*13)%5)*.09;
+    const rock=new THREE.Mesh(new THREE.DodecahedronGeometry(s,1),mat(0x58606b,.9,0));
+    rock.position.set(x,y+s*.65,z);rock.rotation.set(i*.3,i*.7,i*.2);rock.castShadow=true;rock.receiveShadow=true;world.add(rock);
+  }
+}
+function init(){
+  renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance',precision:'highp'});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.5));
+  renderer.setSize(innerWidth,innerHeight,false);
+  renderer.shadowMap.enabled=true;
+  renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  renderer.outputColorSpace=THREE.SRGBColorSpace;
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure=1.15;
+  document.body.appendChild(renderer.domElement);
+
+  scene=new THREE.Scene();
+  scene.background=new THREE.Color(0x86a7d2);
+  scene.fog=new THREE.FogExp2(0x86a7d2,.012);
+
+  camera=new THREE.PerspectiveCamera(64,innerWidth/innerHeight,.05,180);
+  camera.position.set(0,9,-17);
+  camera.lookAt(target);
+
+  scene.add(new THREE.HemisphereLight(0xaecbff,0x253322,1.15));
+  sun=new THREE.DirectionalLight(0xffe5b5,3.0);
+  sun.position.set(18,24,16);sun.castShadow=true;
+  sun.shadow.mapSize.set(1536,1536);
+  sun.shadow.camera.left=-30;sun.shadow.camera.right=30;sun.shadow.camera.top=30;sun.shadow.camera.bottom=-30;
+  sun.shadow.camera.near=1;sun.shadow.camera.far=70;
+  scene.add(sun);
+
+  buildWorld();
+  boot.remove();
+  window.addEventListener('resize',resize);
+  resize();
+  raf=requestAnimationFrame(loop);
+}
+function resize(){
+  if(!renderer)return;
+  renderer.setSize(innerWidth,innerHeight,false);
+  camera.aspect=innerWidth/Math.max(1,innerHeight);camera.updateProjectionMatrix();
+}
+function loop(t){
+  raf=requestAnimationFrame(loop);
+  if(!runtime) grid.visible=true;
+  renderer.render(scene,camera);
+}
+function setCamera(yaw,pitch,distance,tx,ty,tz){
+  if(!camera)return;
+  target.set(tx,ty,tz);
+  const yr=THREE.MathUtils.degToRad(yaw),pr=THREE.MathUtils.degToRad(pitch);
+  camera.position.set(
+    tx+Math.cos(pr)*Math.cos(yr)*distance,
+    ty+Math.sin(pr)*distance,
+    tz+Math.cos(pr)*Math.sin(yr)*distance
+  );
+  camera.lookAt(target);
+}
+function setRuntime(enabled){
+  runtime=!!enabled;
+  grid.visible=!runtime;
+}
+window.NoirViewport={setCamera,setRuntime};
+try{init();}catch(e){boot.textContent='NOIR 3D • WEBGL2 ERROR';console.error(e);}
+</script>
+</body>
+</html>
