@@ -43,7 +43,12 @@ public final class NoirNative {
     public static native String vulkanDeviceInfo();
     public static native String vulkanFeatureInfo();
     public static native float[] editorLayout(float width,float height,float density);
-    public static native boolean vulkanAttachSurface(android.view.Surface surface);
+    public static native boolean vulkanAttachSurface(android.view.Surface surface, android.content.res.AssetManager assets);
+    public static native void vulkanResize(int width,int height);
+    public static native void vulkanSetScene(float[] snapshot);
+    public static native void vulkanSetCamera(float yaw,float pitch,float distance,float targetX,float targetY,float targetZ);
+    public static native void vulkanSetEnvironment(int skyMode,float exposure,float skyBrightness,float fogDensity,float sunX,float sunY,float sunZ);
+    public static native void vulkanSetQuality(int qualityTier);
     public static native boolean vulkanDrawFrame();
     public static native void vulkanDetachSurface();
 }
