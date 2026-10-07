@@ -24,5 +24,5 @@ public abstract class Script : Node
     public virtual void Ready() { }
     public virtual void Process(float delta) { Update(delta); }
     public virtual void PhysicsProcess(float delta) { PhysicsUpdate(delta); }
-    public virtual void ExitTree() { }
+    public override void ExitTree() { base.ExitTree(); }
 }
