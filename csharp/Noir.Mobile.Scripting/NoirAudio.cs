@@ -1,7 +1,7 @@
 namespace Noir;
 
 public enum AudioBus{Master,Music,Sfx,Voice,UI,Ambient}
-public class AudioStream:Resource{public float Length{get;set;}public int SampleRate{get;set;}=48000;public int Channels{get;set;}=2;}
+public class AudioStream:NoirResource{public float Length{get;set;}public int SampleRate{get;set;}=48000;public int Channels{get;set;}=2;}
 public class AudioStreamPlayer:Node
 {
     public AudioStream? Stream{get;set;}public float VolumeDb{get;set;}public float PitchScale{get;set;}=1;
