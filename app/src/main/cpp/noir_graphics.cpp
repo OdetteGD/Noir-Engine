@@ -1,4 +1,5 @@
 #include "noir_graphics.h"
+#include "noir_world_scene.h"
 
 #include <GLES3/gl3.h>
 #include <android/log.h>
@@ -366,7 +367,15 @@ struct Renderer::Impl {
         ready=true;return true;
     }
 
-    void setScene(const std::vector<SceneInstance>& in){scene=in;}
+    void setScene(const std::vector<SceneInstance>& in){
+        scene=in;
+        if(scene.empty()){
+            std::vector<noir::world::Instance> fallback;
+            noir::world::buildDefaultWorld(fallback);
+            scene.reserve(fallback.size());
+            for(const auto& w:fallback)scene.push_back({w.x,w.y,w.z,w.sx,w.sy,w.sz,w.rx,w.ry,w.rz,w.kind});
+        }
+    }
     void setEnvironment(int mode,float exposure,float brightness,float fog,const Vec3& sun){
         skyMode=std::max(0,mode);
         environmentExposure=std::max(0.05f,exposure);
