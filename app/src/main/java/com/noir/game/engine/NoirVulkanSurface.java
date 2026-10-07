@@ -15,12 +15,16 @@ public final class NoirVulkanSurface extends SurfaceView implements SurfaceHolde
     private final NoirRenderer renderer;
     private boolean attached;
     private boolean running;
+    private int uploadedSceneVersion=-1;
     private final Runnable frameLoop = new Runnable() {
         @Override public void run() {
             if (!running || !attached) return;
             try {
                 float[] sun=renderer.environmentSunDirection();
-                NoirNative.vulkanSetScene(renderer.sceneSnapshot());
+                if(uploadedSceneVersion!=renderer.sceneSnapshotVersion()){
+                    NoirNative.vulkanSetScene(renderer.sceneSnapshot());
+                    uploadedSceneVersion=renderer.sceneSnapshotVersion();
+                }
                 NoirNative.vulkanSetCamera(renderer.camera().yaw,renderer.camera().pitch,renderer.camera().distance,
                         renderer.camera().targetX,renderer.camera().targetY,renderer.camera().targetZ);
                 NoirNative.vulkanSetEnvironment(renderer.environmentSkyMode(),renderer.environmentExposure(),
@@ -46,7 +50,7 @@ public final class NoirVulkanSurface extends SurfaceView implements SurfaceHolde
             boolean ok = NoirNative.vulkanAttachSurface(holder.getSurface(), getContext().getAssets());
             attached = ok;
             running = ok;
-            if (ok) handler.post(frameLoop);
+            if (ok) { uploadedSceneVersion=-1; handler.post(frameLoop); }
             else Toast.makeText(getContext(),"Vulkan surface failed; restart with GLES.",Toast.LENGTH_LONG).show();
         } catch (Throwable ignored) {
             attached=false; running=false;
