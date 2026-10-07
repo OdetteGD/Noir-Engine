@@ -52,6 +52,9 @@ jobs:
       - name: Build mobile C# game template
         run: dotnet build csharp/Noir.GameTemplate/Noir.GameTemplate.csproj -f net10.0-android36.1 --configuration Release
 
+      - name: Build Noir.Editor C# tooling
+        run: dotnet build csharp/Noir.Editor/Noir.Editor.csproj --configuration Release
+
       - name: Validate sample C# script
         shell: bash
         run: |
