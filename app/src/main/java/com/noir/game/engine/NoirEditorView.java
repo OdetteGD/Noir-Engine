@@ -193,7 +193,7 @@ public final class NoirEditorView extends android.view.View {
             return;
         }
         bold(c,"NOIR",dp(18),dp(36),dp(24),TEXT);
-        text(c,"3D ENGINE",dp(88),dp(27),dp(11),0xffa7b8d8);
+        text(c,"3D ENGINE",dp(88),dp(27),dp(11),MUTED);
         text(c,"MOBILE EDITOR",dp(88),dp(43),dp(9),MUTED);
         toolButton(c,dp(220),dp(9),dp(54),dp(40),"SEL",state.tool==EditorState.Tool.SELECT);
         toolButton(c,dp(280),dp(9),dp(64),dp(40),"MOVE",state.tool==EditorState.Tool.MOVE);
@@ -297,7 +297,7 @@ public final class NoirEditorView extends android.view.View {
 
     private void drawPanel(Canvas c,float l,float t,float r,float b,String title){
         round(c,PANEL,l,t,r,b,dp(8));stroke(c,BORDER,dp(1),l,t,r,b,dp(8));
-        bold(c,title,l+dp(16),t+dp(27),dp(11),0xffbdc9dc);
+        bold(c,title,l+dp(16),t+dp(27),dp(11),MUTED);
         text(c,status,l+dp(16),t+dp(44),dp(8),MUTED);
     }
 
@@ -311,7 +311,7 @@ public final class NoirEditorView extends android.view.View {
             if(n==state.selected)round(c,ACTIVE,l+dp(8),y-dp(20),r-dp(8),y+dp(9),dp(5));
             drawNodeIcon(c,n.kind,l+dp(22+n.depth()*15),y-dp(5),dp(12),n==state.selected?ACTIVE:ACCENT);
             text(c,n.name,l+dp(37+n.depth()*15),y,dp(11),n==state.selected?Color.WHITE:TEXT);
-            text(c,n.kind.name(),r-dp(84),y,dp(7),0xff64748a);
+            text(c,n.kind.name(),r-dp(84),y,dp(7),MUTED);
             y+=dp(29);
         }
         smallButton(c,l+dp(14),b-dp(62),dp(74),"ADD NODE",true);
@@ -381,7 +381,7 @@ public final class NoirEditorView extends android.view.View {
             float y=t+dp(152);
             for(File f:fs){
                 if(y>b-dp(44))break;
-                round(c,f.isDirectory()?0xff17253a:0xff121a27,l+dp(12),y-dp(16),r-dp(12),y+dp(12),dp(5));
+                round(c,f.isDirectory()?PANEL2:PANEL,l+dp(12),y-dp(16),r-dp(12),y+dp(12),dp(5));
                 drawFileIcon(c,l+dp(26),y-dp(5),dp(11),f.isDirectory(),f.isDirectory()?ACCENT:MUTED);
                 text(c,f.getName(),l+dp(40),y+dp(1),dp(10),TEXT);
                 text(c,f.isDirectory()?"FOLDER":"FILE",r-dp(54),y+dp(1),dp(7),MUTED);
@@ -399,10 +399,10 @@ public final class NoirEditorView extends android.view.View {
         smallButton(c,l+dp(260),t+dp(82),dp(82),timeline.autoKey?"AUTO ON":"AUTO OFF",timeline.autoKey);
         text(c,timeline.timecode(timeline.playhead),r-dp(78),t+dp(101),dp(9),WARN);
         float top=t+dp(132),bot=b-dp(28);
-        round(c,0xff080d15,l+dp(12),top,r-dp(12),bot,dp(5));
+        round(c,PANEL2,l+dp(12),top,r-dp(12),bot,dp(5));
         for(int i=0;i<=8;i++){
             float x=l+dp(14)+(r-l-dp(28))*i/8f;
-            p.setColor(0xff253149);p.setStrokeWidth(1);c.drawLine(x,top,x,bot,p);
+            p.setColor(BORDER);p.setStrokeWidth(1);c.drawLine(x,top,x,bot,p);
             text(c,String.format(Locale.US,"%.1fs",timeline.clip.duration*i/8f),x+dp(3),top+dp(17),dp(7),MUTED);
         }
         float norm=timeline.clip.duration<=0?0:timeline.playhead/timeline.clip.duration;
@@ -423,12 +423,12 @@ public final class NoirEditorView extends android.view.View {
 
     private void drawScript(Canvas c,float l,float t,float r,float b){
         text(c,state.scriptPath,l+dp(16),t+dp(68),dp(9),ACCENT);
-        round(c,0xff070b12,l+dp(12),t+dp(80),r-dp(12),b-dp(66),dp(5));
+        round(c,PANEL,l+dp(12),t+dp(80),r-dp(12),b-dp(66),dp(5));
         String[] lines=script.text.split("\\n",-1);
         float y=t+dp(102);
         for(int i=0;i<lines.length&&y<b-dp(86);i++){
-            text(c,String.format(Locale.US,"%03d",i+1),l+dp(18),y,dp(8),0xff4e5d75);
-            text(c,lines[i],l+dp(52),y,dp(9),lines[i].contains("camera")?0xff83a9ff:TEXT);
+            text(c,String.format(Locale.US,"%03d",i+1),l+dp(18),y,dp(8),MUTED);
+            text(c,lines[i],l+dp(52),y,dp(9),lines[i].contains("camera")?ACCENT:TEXT);
             y+=dp(17);
         }
         smallButton(c,l+dp(16),b-dp(52),dp(68),"FORMAT",false);
@@ -448,9 +448,9 @@ public final class NoirEditorView extends android.view.View {
         smallButton(c,l+dp(16),t+dp(220),dp(116),"CREATE C# PROJECT",true);
         smallButton(c,l+dp(142),t+dp(220),dp(98),"OPEN C# FOLDER",false);
         smallButton(c,l+dp(246),t+dp(220),dp(84),"CHECK SDK",false);
-        round(c,0xff080d15,l+dp(12),t+dp(270),r-dp(12),b-dp(66),dp(5));
+        round(c,PANEL2,l+dp(12),t+dp(270),r-dp(12),b-dp(66),dp(5));
         text(c,"PlayerController.cs",l+dp(22),t+dp(296),dp(9),TEXT);
-        text(c,"using Noir;",l+dp(22),t+dp(318),dp(9),0xff83a9ff);
+        text(c,"using Noir;",l+dp(22),t+dp(318),dp(9),ACCENT);
         text(c,"public sealed class PlayerController : Character3D",l+dp(22),t+dp(338),dp(9),TEXT);
         text(c,"Input.Vector(\"ui_left\",\"ui_right\",\"ui_up\",\"ui_down\")",l+dp(22),t+dp(358),dp(8),TEXT);
         text(c,"PhysicsUpdate(delta) • MoveAndSlide()",l+dp(22),t+dp(378),dp(8),TEXT);
@@ -462,7 +462,7 @@ public final class NoirEditorView extends android.view.View {
         String[] nodes={"ALBEDO","NORMAL","ROUGHNESS","METALLIC","AO","EMISSION","IBL","OUTPUT"};
         for(int i=0;i<nodes.length;i++){
             float x=l+dp(16)+(i%2)*dp(150),y=t+dp(92)+(i/2)*dp(58);
-            round(c,0xff1c2940,x,y,x+dp(132),y+dp(40),dp(6));
+            round(c,PANEL2,x,y,x+dp(132),y+dp(40),dp(6));
             text(c,nodes[i],x+dp(10),y+dp(25),dp(9),TEXT);
         }
         smallButton(c,l+dp(16),b-dp(52),dp(104),"NEW MATERIAL",true);
