@@ -129,8 +129,11 @@ static void reset(){
 static bool makeInstance(){
     if(!instanceExt(VK_KHR_SURFACE_EXTENSION_NAME)||!instanceExt("VK_KHR_android_surface"))return false;
     uint32_t api=VK_API_VERSION_1_0;
-    if(vkEnumerateInstanceVersion){
-        if(vkEnumerateInstanceVersion(&api)!=VK_SUCCESS)api=VK_API_VERSION_1_0;
+    PFN_vkEnumerateInstanceVersion enumerateInstanceVersion =
+            reinterpret_cast<PFN_vkEnumerateInstanceVersion>(
+                    vkGetInstanceProcAddr(VK_NULL_HANDLE,"vkEnumerateInstanceVersion"));
+    if(enumerateInstanceVersion){
+        if(enumerateInstanceVersion(&api)!=VK_SUCCESS)api=VK_API_VERSION_1_0;
     }
     if(VK_API_VERSION_MAJOR(api)<1 || (VK_API_VERSION_MAJOR(api)==1 && VK_API_VERSION_MINOR(api)<1)){
         NOIR_VK_LOG("Vulkan 1.1+ required by Noir mobile renderer");
