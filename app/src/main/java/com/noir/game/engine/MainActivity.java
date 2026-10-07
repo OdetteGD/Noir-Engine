@@ -26,6 +26,13 @@ public final class MainActivity extends Activity {
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
         String projectPath=getIntent().getStringExtra("project_path");
+        try {
+            NoirCSharpRuntime.ensureInstalled(this);
+        } catch(Throwable ignored) {
+            // The editor can still open for non-C# projects; the build pipeline
+            // separately guarantees that the SDK DLLs are packaged in the APK.
+        }
+
         if(projectPath!=null && !projectPath.trim().isEmpty()){
             try{ new NoirProjectWorkspace(this).ensureCSharpLayout(new File(projectPath).getCanonicalFile()); }catch(Throwable ignored){}
         }
