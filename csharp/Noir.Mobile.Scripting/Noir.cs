@@ -174,7 +174,7 @@ public class Node3D:Node
     private static Vector3 DirectionFromRotation(Vector3 r){var yaw=Mathf.DegToRad(r.Y);var pitch=Mathf.DegToRad(r.X);var cp=MathF.Cos(pitch);return new(-MathF.Sin(yaw)*cp,MathF.Sin(pitch),-MathF.Cos(yaw)*cp).Normalized();}
 }
 
-public sealed class Node2D:Node
+public class Node2D:Node
 {
     public Vector2 Position{get;set;}
     public Vector2 Scale{get;set;}=Vector2.One;
