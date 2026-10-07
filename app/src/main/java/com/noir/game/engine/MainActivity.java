@@ -34,12 +34,15 @@ public final class MainActivity extends Activity {
             renderer=new NoirRenderer();
             NoirGraphicsBackend.Type selectedBackend=NoirGraphicsBackend.load(this);
             NoirViewport surface;
+            // The current native Vulkan path is a presentation/clear pipeline, not
+            // the full Noir scene renderer. Do not expose an empty Vulkan surface
+            // as the editor viewport. Keep the real PBR GLES scene renderer active
+            // until the Vulkan scene pipeline (depth/material/shader/draw-list) is ready.
             if(selectedBackend==NoirGraphicsBackend.Type.VULKAN && NoirGraphicsBackend.vulkanAvailable()){
                 NoirGraphicsBackend.initializeVulkanStage();
-                renderer.setGraphicsBackend(NoirRenderer.GraphicsBackend.VULKAN);
-                surface=new NoirVulkanSurface(this);
+                renderer.setGraphicsBackend(NoirRenderer.GraphicsBackend.GLES);
+                surface=new NoirSurface(this,renderer);
             }else{
-                if(selectedBackend==NoirGraphicsBackend.Type.VULKAN) NoirGraphicsBackend.save(this,NoirGraphicsBackend.Type.GLES);
                 renderer.setGraphicsBackend(NoirRenderer.GraphicsBackend.GLES);
                 surface=new NoirSurface(this,renderer);
             }
