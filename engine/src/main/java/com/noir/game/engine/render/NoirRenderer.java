@@ -273,6 +273,7 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
     }
 
     public float frameTimeMs(){return frameTimeMs;}
+    public void setFrameTimeMs(float ms){frameTimeMs=Math.max(0.1f,ms);}
 
     public float gizmoWorldSize(){
         return Math.max(0.8f,Math.min(4.5f,editorCamera.distance*0.10f));
