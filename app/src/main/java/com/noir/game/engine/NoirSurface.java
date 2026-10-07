@@ -19,6 +19,7 @@ public final class NoirSurface extends GLSurfaceView implements NoirViewport {
     private float pinchDistance;
     private boolean nativeGraphics;
     private int nativeSceneVersion=-1;
+    private int nativeQualityVersion=-1;
 
     public void setEditorTapListener(EditorTapListener listener){editorTapListener=listener;}
 
@@ -61,9 +62,12 @@ public final class NoirSurface extends GLSurfaceView implements NoirViewport {
                             renderer.environmentSkyBrightness(),
                             renderer.environmentFogDensity(),
                             sun[0],sun[1],sun[2]);
-                    NoirNative.graphicsSetQuality(renderer.nativeQualityTier());
                     nativeSceneVersion=renderer.sceneSnapshotVersion();
                     renderer.markNativeSceneApplied();
+                }
+                if(nativeQualityVersion!=renderer.nativeQualityTier()){
+                    NoirNative.graphicsSetQuality(renderer.nativeQualityTier());
+                    nativeQualityVersion=renderer.nativeQualityTier();
                 }
                 NoirRenderer.Camera c=renderer.camera();
                 NoirNative.graphicsFrame(c.yaw,c.pitch,c.distance,c.targetX,c.targetY,c.targetZ,
