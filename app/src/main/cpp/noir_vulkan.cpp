@@ -32,7 +32,8 @@ struct Runtime {
     VkFence inFlight=VK_NULL_HANDLE;
     VkImage images[8]{};
     VkImageView views[8]{};
-    VkFramebuffer framebuffers[8]{};\n    uint32_t imageCount=0;
+    VkFramebuffer framebuffers[8]{};
+    uint32_t imageCount=0;
     VkPhysicalDeviceProperties props{};
     uint32_t apiVersion=VK_API_VERSION_1_0;
     ANativeWindow* window=nullptr;
