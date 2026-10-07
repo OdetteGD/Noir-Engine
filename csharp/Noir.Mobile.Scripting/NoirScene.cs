@@ -2,7 +2,7 @@ namespace Noir;
 
 public abstract class NoirResource : Object
 {
-    public string NoirResourcePath { get; internal set; } = "";
+    public string ResourcePath { get; internal set; } = "";
 }
 
 public sealed class PackedScene : NoirResource
@@ -14,7 +14,7 @@ public sealed class PackedScene : NoirResource
     }
 }
 
-public static class NoirResourceLoader
+public static class ResourceLoader
 {
     public static T? Load<T>(string path) where T : NoirResource,new()
     {
