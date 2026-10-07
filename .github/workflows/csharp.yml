@@ -55,8 +55,18 @@ jobs:
       - name: Build Noir.Editor C# tooling
         run: dotnet build csharp/Noir.Editor/Noir.Editor.csproj --configuration Release
 
-      - name: Validate sample C# script
+      - name: Validate and emit sample C# DLL
         shell: bash
         run: |
           set -euo pipefail
-          dotnet run --project csharp/Noir.CSharp.Compiler/Noir.CSharp.Compiler.csproj --configuration Release -- validate csharp/Noir.GameTemplate/PlayerController.cs
+          mkdir -p build/csharp
+          dotnet run --project csharp/Noir.CSharp.Compiler/Noir.CSharp.Compiler.csproj --configuration Release -- compile build/csharp/Noir.Game.dll csharp/Noir.GameTemplate/PlayerController.cs
+          test -s build/csharp/Noir.Game.dll
+          dotnet run --project csharp/Noir.CSharp.Compiler/Noir.CSharp.Compiler.csproj --configuration Release -- build csharp/Noir.GameTemplate build/csharp/Noir.GameTemplate.dll
+          test -s build/csharp/Noir.GameTemplate.dll
+
+      - name: Upload generated C# DLLs
+        uses: actions/upload-artifact@v4
+        with:
+          name: noir-csharp-dlls
+          path: build/csharp/*.dll

@@ -1,20 +1,72 @@
 package com.noir.game.engine.render;
 
-/** Environment/sky/atmosphere configuration consumed by the 3D renderer and editor inspector. */
+/**
+ * Complete mobile-friendly world environment profile.
+ *
+ * Keeps the editor/runtime representation independent from a specific graphics
+ * API so the same scene can drive GLES, Vulkan, and future backends.
+ */
 public final class WorldEnvironmentSettings {
-    public enum SkyMode{COLOR,GRADIENT,CUBEMAP,PROCEDURAL_SKY,HDRI}
-    public SkyMode skyMode=SkyMode.PROCEDURAL_SKY; public String skyAsset="";
-    public float skyBrightness=1f,sunEnergy=2f,ambientEnergy=.7f,fogDensity=.008f,fogHeight=12f;
-    public boolean fogEnabled=true,volumetricEnabled=false,tonemap=true,autoExposure=false;
-    public float exposure=1f,whitePoint=1f,cloudCoverage=.15f,cloudDensity=.2f;
-    public final float[] horizon={.32f,.40f,.55f,1f},zenith={.04f,.08f,.16f,1f};
-    public void setSkyMode(SkyMode mode){skyMode=mode;}
-    public void setFog(float density,float height){fogDensity=Math.max(0,density);fogHeight=Math.max(0,height);fogEnabled=fogDensity>0;}
-    public void setExposure(float value){exposure=Math.max(.01f,Math.min(8f,value));}
-    public void setSkyBrightness(float value){skyBrightness=Math.max(0f,Math.min(16f,value));}
-    public void setAmbientEnergy(float value){ambientEnergy=Math.max(0f,Math.min(8f,value));}
-    public void setSunEnergy(float value){sunEnergy=Math.max(0f,Math.min(32f,value));}
-    public void setClouds(float coverage,float density){cloudCoverage=Math.max(0f,Math.min(1f,coverage));cloudDensity=Math.max(0f,Math.min(1f,density));}
-    public boolean valid(){return skyBrightness>=0&&sunEnergy>=0&&ambientEnergy>=0&&fogDensity>=0&&fogHeight>=0&&exposure>0;}
+    public enum SkyMode { COLOR, GRADIENT, CUBEMAP, PROCEDURAL_SKY, HDRI }
+
+    public SkyMode skyMode=SkyMode.PROCEDURAL_SKY;
+    public String skyAsset="";
+    public float skyBrightness=1f;
+    public float sunEnergy=2f;
+    public float ambientEnergy=.7f;
+    public float fogDensity=.008f;
+    public float fogHeight=12f;
+    public float exposure=1f;
+    public float whitePoint=1f;
+    public float cloudCoverage=.15f;
+    public float cloudDensity=.2f;
+    public float cloudSpeed=.006f;
+    public float sunYaw=-152f;
+    public float sunPitch=-55f;
+    public final float[] horizon={.32f,.40f,.55f,1f};
+    public final float[] zenith={.04f,.08f,.16f,1f};
+    public boolean fogEnabled=true;
+    public boolean volumetricEnabled=false;
+    public boolean cloudsEnabled=true;
+    public boolean sunRays=true;
+    public boolean tonemap=true;
+    public boolean autoExposure=false;
+
+    public void setSkyMode(SkyMode mode){skyMode=mode==null?SkyMode.PROCEDURAL_SKY:mode;}
+    public void setFog(float density,float height){
+        fogDensity=clamp(density,0f,.25f);
+        fogHeight=Math.max(0f,height);
+        fogEnabled=fogDensity>0f;
+    }
+    public void setExposure(float value){exposure=clamp(value,.01f,8f);}
+    public void setSkyBrightness(float value){skyBrightness=clamp(value,0f,16f);}
+    public void setAmbientEnergy(float value){ambientEnergy=clamp(value,0f,8f);}
+    public void setSunEnergy(float value){sunEnergy=clamp(value,0f,32f);}
+    public void setClouds(float coverage,float density){
+        cloudCoverage=clamp(coverage,0f,1f);
+        cloudDensity=clamp(density,0f,1f);
+        cloudsEnabled=cloudCoverage>0f&&cloudDensity>0f;
+    }
+    public void setSun(float yawDegrees,float pitchDegrees,float energy){
+        sunYaw=yawDegrees;
+        sunPitch=clamp(pitchDegrees,-89f,89f);
+        setSunEnergy(energy);
+    }
+    public void setCloudMotion(float speed){cloudSpeed=clamp(speed,-.05f,.05f);}
+
+    public float[] sunDirection(){
+        double yaw=Math.toRadians(sunYaw), pitch=Math.toRadians(sunPitch);
+        float cp=(float)Math.cos(pitch);
+        return new float[]{(float)(Math.cos(yaw)*cp),(float)Math.sin(pitch),(float)(Math.sin(yaw)*cp)};
+    }
+
+    public boolean valid(){
+        return skyBrightness>=0f&&sunEnergy>=0f&&ambientEnergy>=0f&&
+               fogDensity>=0f&&fogHeight>=0f&&exposure>0f&&
+               cloudCoverage>=0f&&cloudDensity>=0f;
+    }
+
     public float ambientLuminance(){return ambientEnergy*skyBrightness;}
+
+    private static float clamp(float v,float min,float max){return Math.max(min,Math.min(max,v));}
 }

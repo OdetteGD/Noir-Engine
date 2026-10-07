@@ -68,6 +68,7 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
     private final Camera editorCamera=new Camera();
     private final RuntimeCamera runtimeCamera=new RuntimeCamera();
     private final Quality quality=new Quality();
+    private final WorldEnvironmentSettings environment=new WorldEnvironmentSettings();
     private Mode mode=Mode.EDITOR;
 
     private int width=1,height=1;
@@ -178,6 +179,32 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
     public Camera camera(){return editorCamera;}
     public RuntimeCamera runtimeCamera(){return runtimeCamera;}
     public Quality quality(){return quality;}
+    public WorldEnvironmentSettings environment(){return environment;}
+
+    /** Applies a scene environment profile without coupling the editor to GLES internals. */
+    public void applyWorldEnvironment(WorldEnvironmentSettings settings){
+        if(settings==null||!settings.valid())return;
+        environment.skyMode=settings.skyMode;
+        environment.skyAsset=settings.skyAsset;
+        environment.skyBrightness=settings.skyBrightness;
+        environment.sunEnergy=settings.sunEnergy;
+        environment.ambientEnergy=settings.ambientEnergy;
+        environment.fogDensity=settings.fogDensity;
+        environment.fogHeight=settings.fogHeight;
+        environment.exposure=settings.exposure;
+        environment.whitePoint=settings.whitePoint;
+        environment.cloudCoverage=settings.cloudCoverage;
+        environment.cloudDensity=settings.cloudDensity;
+        environment.cloudSpeed=settings.cloudSpeed;
+        environment.sunYaw=settings.sunYaw;
+        environment.sunPitch=settings.sunPitch;
+        environment.fogEnabled=settings.fogEnabled;
+        environment.volumetricEnabled=settings.volumetricEnabled;
+        environment.cloudsEnabled=settings.cloudsEnabled;
+        environment.sunRays=settings.sunRays;
+        environment.tonemap=settings.tonemap;
+        environment.autoExposure=settings.autoExposure;
+    }
 
     public void setQualityPreset(QualityPreset preset){
         switch(preset){
@@ -318,12 +345,15 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
         float[] lightVP=lightViewProj();
         GLES30.glUniformMatrix4fv(uViewProj,1,false,vp,0);
         GLES30.glUniformMatrix4fv(uLightVP,1,false,lightVP,0);
-        GLES30.glUniform3f(uSunDir,-0.42f,-0.82f,-0.34f);
-        GLES30.glUniform3f(uSunColor,1.0f,0.93f,0.82f);
-        GLES30.glUniform3f(uSky,0.38f,0.56f,0.82f);
-        GLES30.glUniform1f(uExposure,quality.exposure);
+        float[] sun=environment.sunDirection();
+        GLES30.glUniform3f(uSunDir,sun[0],sun[1],sun[2]);
+        float sunScale=Math.max(0f,environment.sunEnergy/2f);
+        GLES30.glUniform3f(uSunColor,1.0f*sunScale,0.93f*sunScale,0.82f*sunScale);
+        float skyScale=Math.max(0f,environment.skyBrightness);
+        GLES30.glUniform3f(uSky,0.38f*skyScale,0.56f*skyScale,0.82f*skyScale);
+        GLES30.glUniform1f(uExposure,quality.exposure*environment.exposure);
         GLES30.glUniform1f(uReflections,quality.reflections?1f:0f);
-        GLES30.glUniform1f(uFog,quality.fog?0.18f:0f);
+        GLES30.glUniform1f(uFog,quality.fog&&environment.fogEnabled?Math.max(0f,environment.fogDensity*12f):0f);
         GLES30.glUniform1f(uTone,quality.toneMapping?1f:0f);
         GLES30.glUniform1f(uContrast,quality.colorGrading?quality.contrast:1f);
         GLES30.glUniform1f(uSaturation,quality.colorGrading?quality.saturation:1f);
@@ -380,8 +410,8 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
         GLES30.glUniform3f(skyRight,right[0],right[1],right[2]);
         GLES30.glUniform3f(skyUp,up[0],up[1],up[2]);
         GLES30.glUniform1f(skyAspect,(float)width/Math.max(1,height));
-        GLES30.glUniform1f(skyClouds,quality.clouds?1f:0f);
-        GLES30.glUniform1f(skySunRays,quality.sunRays?1f:0f);
+        GLES30.glUniform1f(skyClouds,quality.clouds&&environment.cloudsEnabled?environment.cloudCoverage*environment.cloudDensity:0f);
+        GLES30.glUniform1f(skySunRays,quality.sunRays&&environment.sunRays?1f:0f);
         GLES30.glUniform1f(skyGodRays,quality.godRays?1f:0f);
         GLES30.glDrawArrays(GLES30.GL_TRIANGLES,0,3);
         GLES30.glEnable(GLES30.GL_CULL_FACE);

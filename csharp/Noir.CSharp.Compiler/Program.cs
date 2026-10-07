@@ -12,29 +12,44 @@ static int Main(string[] args)
         Console.WriteLine("Noir C# compiler host");
         Console.WriteLine("  validate <file.cs> [file.cs ...]");
         Console.WriteLine("  compile <output.dll> <file.cs> [file.cs ...]");
+        Console.WriteLine("  build <projectDir> <output.dll>");
         return 0;
     }
 
     var mode=args[0].ToLowerInvariant();
-    if(mode!="validate" && mode!="compile")
+    if(mode!="validate" && mode!="compile" && mode!="build")
     {
         Console.Error.WriteLine("Unknown command: "+mode);
         return 2;
     }
 
-    var output = mode=="compile" ? args.ElementAtOrDefault(1) : null;
-    var start = mode=="compile" ? 2 : 1;
-    if(args.Length<=start)
+    string? output;
+    List<string> sourceFiles;
+    if(mode=="build")
     {
-        Console.Error.WriteLine("No C# source files supplied.");
-        return 2;
+        if(args.Length<3){Console.Error.WriteLine("Usage: build <projectDir> <output.dll>");return 2;}
+        var projectDir=Path.GetFullPath(args[1]);
+        output=Path.GetFullPath(args[2]);
+        if(!Directory.Exists(projectDir)){Console.Error.WriteLine("Project directory not found: "+projectDir);return 2;}
+        sourceFiles=Directory.EnumerateFiles(projectDir,"*.cs",SearchOption.AllDirectories)
+            .Where(p=>!p.Contains(Path.DirectorySeparatorChar+"bin"+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase)
+                   &&!p.Contains(Path.DirectorySeparatorChar+"obj"+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase))
+            .OrderBy(p=>p,StringComparer.OrdinalIgnoreCase).ToList();
+    }
+    else
+    {
+        output=mode=="compile" ? args.ElementAtOrDefault(1) : null;
+        var start=mode=="compile" ? 2 : 1;
+        if(args.Length<=start){Console.Error.WriteLine("No C# source files supplied.");return 2;}
+        sourceFiles=args.Skip(start).ToList();
     }
 
-    var sources=args.Skip(start).Select(File.ReadAllText).ToArray();
+    if(sourceFiles.Count==0){Console.Error.WriteLine("No C# source files found.");return 2;}
+    var sources=sourceFiles.Select(File.ReadAllText).ToArray();
     var trees=sources.Select((s,i)=>CSharpSyntaxTree.ParseText(
         s,
         CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.CSharp14),
-        path:Path.GetFileName(args[start+i]))).ToArray();
+        path:Path.GetFullPath(sourceFiles[i]))).ToArray();
 
     var refs=new List<MetadataReference>();
     foreach(var asm in AppDomain.CurrentDomain.GetAssemblies())

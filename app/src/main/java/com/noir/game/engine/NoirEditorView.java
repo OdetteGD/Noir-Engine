@@ -11,6 +11,7 @@ import com.noir.game.engine.editor.*;
 import com.noir.game.engine.render.NoirRenderer;
 import com.noir.game.engine.scene.NoirNode;
 import com.noir.game.engine.scripting.NoirCSharpProjectService;
+import com.noir.game.engine.scripting.NoirGameCompiler;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -1025,10 +1026,29 @@ public final class NoirEditorView extends android.view.View {
     private void buildProject(){
         state.log("Build validation started");
         state.log("Scene nodes: "+state.scene.flatten().size());
-        state.log("Renderer: GLES 3.0 forward PBR / shadow PCF");
+        state.log("Renderer: "+renderer.graphicsBackendStatus());
         state.log("Native backend: "+(NoirNative.isLoaded()?"loaded":"fallback"));
-        status="Build validation complete";
-        tab=10;Toast.makeText(getContext(),"Noir build validation complete",Toast.LENGTH_SHORT).show();invalidate();
+        if(state.projectRoot!=null){
+            try{
+                NoirGameCompiler.Result result=new NoirGameCompiler().compileProject(state.projectRoot);
+                for(NoirGameCompiler.Diagnostic d:result.diagnostics)state.log(d.toString());
+                if(result.success()){
+                    status="Build OK • "+result.compiledScripts+" scripts / "+result.validatedScenes+" scenes";
+                    Toast.makeText(getContext(),status,Toast.LENGTH_SHORT).show();
+                }else{
+                    status="Build failed • see Console";
+                    Toast.makeText(getContext(),"Noir build has script/scene errors",Toast.LENGTH_LONG).show();
+                }
+            }catch(Exception ex){
+                state.log("BUILD ERROR: "+ex.getMessage());
+                status="Build failed";
+                Toast.makeText(getContext(),"Build failed: "+ex.getMessage(),Toast.LENGTH_LONG).show();
+            }
+        }else{
+            status="Build validation complete";
+            Toast.makeText(getContext(),"No project root",Toast.LENGTH_SHORT).show();
+        }
+        tab=10;invalidate();
     }
 
     private void saveProject(){
