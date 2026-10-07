@@ -31,8 +31,13 @@ public final class NoirVulkanSurface extends SurfaceView implements SurfaceHolde
                     NoirNative.vulkanSetScene(renderer.sceneSnapshot());
                     uploadedSceneVersion=renderer.sceneSnapshotVersion();
                 }
-                NoirNative.vulkanSetCamera(renderer.camera().yaw,renderer.camera().pitch,renderer.camera().distance,
-                        renderer.camera().targetX,renderer.camera().targetY,renderer.camera().targetZ);
+                if(renderer.mode()==NoirRenderer.Mode.RUNTIME){
+                    float[] rc=renderer.runtimeCameraState();
+                    NoirNative.vulkanSetRuntimeCamera(rc[0],rc[1],rc[2],rc[3],rc[4]);
+                }else{
+                    NoirNative.vulkanSetCamera(renderer.camera().yaw,renderer.camera().pitch,renderer.camera().distance,
+                            renderer.camera().targetX,renderer.camera().targetY,renderer.camera().targetZ);
+                }
                 NoirNative.vulkanSetEnvironment(renderer.environmentSkyMode(),renderer.environmentExposure(),
                         renderer.environmentSkyBrightness(),renderer.environmentFogDensity(),
                         sun[0],sun[1],sun[2]);
