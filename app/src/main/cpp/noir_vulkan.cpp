@@ -369,7 +369,12 @@ extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanSet
     rebuildVertices();
 }
 
-extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanSetCamera(JNIEnv*,jclass,jfloat yaw,jfloat pitch,jfloat distance,jfloat tx,jfloat ty,jfloat tz){g.yaw=yaw;g.pitch=pitch;g.distance=distance;g.targetX=tx;g.targetY=ty;g.targetZ=tz;}
+extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanSetCamera(JNIEnv*,jclass,jfloat yaw,jfloat pitch,jfloat distance,jfloat tx,jfloat ty,jfloat tz){
+    g.yaw=yaw;g.pitch=pitch;g.distance=distance;g.targetX=tx;g.targetY=ty;g.targetZ=tz;
+}
+extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanSetRuntimeCamera(JNIEnv*,jclass,jfloat x,jfloat y,jfloat z,jfloat yaw,jfloat pitch){
+    g.targetX=x;g.targetY=y;g.targetZ=z;g.distance=0;g.yaw=yaw;g.pitch=pitch;
+}
 extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanSetEnvironment(JNIEnv*,jclass,jint mode,jfloat exposure,jfloat brightness,jfloat fog,jfloat sx,jfloat sy,jfloat sz){g.skyMode=mode;g.exposure=std::max(0.05f,float(exposure));g.brightness=std::max(0.0f,float(brightness));g.fog=std::max(0.0f,float(fog));g.sun=normalize({sx,sy,sz});}
 extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanSetQuality(JNIEnv*,jclass,jint tier){g.quality=std::max(1.0f,std::min(4.0f,float(tier)));}
 extern "C" JNIEXPORT jboolean JNICALL Java_com_noir_game_engine_NoirNative_vulkanDrawFrame(JNIEnv*,jclass){
