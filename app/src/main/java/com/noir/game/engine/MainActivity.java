@@ -125,8 +125,11 @@ public final class MainActivity extends Activity {
                 NoirNode env = root.add(new NoirNode(
                         "WorldEnvironment", "WorldEnvironment", NoirNode.Kind.WORLD_ENVIRONMENT));
                 env.properties.put("sky", "procedural");
+                env.properties.put("sky_mode", "PROCEDURAL_SKY");
                 env.properties.put("clouds", "procedural");
+                env.properties.put("sky_brightness", "1.0");
                 env.properties.put("exposure", "1.0");
+                env.properties.put("fog_density", "0.008");
             }
             if (root.find("Sun") == null) {
                 NoirNode sun = root.add(new NoirNode("Sun", "Sun", NoirNode.Kind.LIGHT3D));
