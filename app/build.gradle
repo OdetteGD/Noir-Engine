@@ -8,6 +8,29 @@ if (noirKeystore.exists()) {
 
 def noirCSharpBundle = rootProject.file("build/csharp/sdk")
 def noirCSharpGeneratedAssets = file("$buildDir/generated/noir-csharp-assets")
+def noirVulkanGeneratedAssets = file("$buildDir/generated/noir-vulkan-assets")
+
+ tasks.register("prepareNoirVulkanShaders") {
+    inputs.dir(file("src/main/cpp/shaders"))
+    outputs.dir(noirVulkanGeneratedAssets)
+    doLast {
+        File compiler = file(System.getenv("GLSLANG_VALIDATOR") ?: "glslangValidator")
+        if (!compiler.isFile() && !compiler.exists()) {
+            logger.lifecycle("No glslangValidator found; Vulkan assets will be unavailable and runtime will safely fall back to GLES.")
+            delete(noirVulkanGeneratedAssets)
+            return
+        }
+        delete(noirVulkanGeneratedAssets)
+        File out = new File(noirVulkanGeneratedAssets, "vulkan")
+        out.mkdirs()
+        ["noir_forward.vert", "noir_forward.frag"].each { String shader ->
+            exec {
+                commandLine compiler.absolutePath, "-V", file("src/main/cpp/shaders/$shader").absolutePath,
+                        "-o", new File(out, shader + ".spv").absolutePath
+            }
+        }
+    }
+}
 
 tasks.register("prepareNoirCSharpAssets") {
     inputs.dir(noirCSharpBundle)
@@ -35,6 +58,7 @@ android {
     sourceSets {
         main {
             assets.srcDir(noirCSharpGeneratedAssets)
+            assets.srcDir(noirVulkanGeneratedAssets)
         }
     }
     compileSdk 35
@@ -98,7 +122,7 @@ android {
     }
 }
 
-tasks.named("preBuild").configure { dependsOn("prepareNoirCSharpAssets") }
+tasks.named("preBuild").configure { dependsOn("prepareNoirCSharpAssets", "prepareNoirVulkanShaders") }
 
 dependencies {
     implementation project(':engine')
