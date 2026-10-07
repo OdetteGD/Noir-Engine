@@ -18,6 +18,7 @@ public final class NoirSurface extends GLSurfaceView implements NoirViewport {
     private boolean runtimeMoveTouch;
     private float pinchDistance;
     private boolean nativeGraphics;
+    private int nativeInitAttempts;
     private int nativeSceneVersion=-1;
     private int nativeQualityVersion=-1;
 
@@ -40,46 +41,56 @@ public final class NoirSurface extends GLSurfaceView implements NoirViewport {
 
     private final class NativeRendererAdapter implements GLSurfaceView.Renderer {
         @Override public void onSurfaceCreated(javax.microedition.khronos.opengles.GL10 gl,EGLConfig config){
-            nativeGraphics=NoirNative.isLoaded() && NoirNative.graphicsInitialize();
-            if(!nativeGraphics){
-                renderer.onSurfaceCreated(gl,config);
+            nativeSceneVersion=-1;
+            nativeQualityVersion=-1;
+            nativeInitAttempts=0;
+            tryNativeInitialize();
+        }
+
+        private void tryNativeInitialize(){
+            if(nativeGraphics || !NoirNative.isLoaded()) return;
+            if(nativeInitAttempts>=3) return;
+            nativeInitAttempts++;
+            try{
+                nativeGraphics=NoirNative.graphicsInitialize();
+            }catch(Throwable ignored){
+                nativeGraphics=false;
             }
         }
 
         @Override public void onSurfaceChanged(javax.microedition.khronos.opengles.GL10 gl,int width,int height){
+            if(!nativeGraphics) tryNativeInitialize();
             if(nativeGraphics) NoirNative.graphicsResize(width,height);
-            else renderer.onSurfaceChanged(gl,width,height);
         }
 
         @Override public void onDrawFrame(javax.microedition.khronos.opengles.GL10 gl){
-            if(nativeGraphics){
-                if(nativeSceneVersion!=renderer.sceneSnapshotVersion()){
-                    NoirNative.graphicsSetScene(renderer.sceneSnapshot());
-                    float[] sun=renderer.environmentSunDirection();
-                    NoirNative.graphicsSetEnvironment(
-                            renderer.environmentSkyMode(),
-                            renderer.environmentExposure(),
-                            renderer.environmentSkyBrightness(),
-                            renderer.environmentFogDensity(),
-                            sun[0],sun[1],sun[2]);
-                    nativeSceneVersion=renderer.sceneSnapshotVersion();
-                    renderer.markNativeSceneApplied();
-                }
-                if(nativeQualityVersion!=renderer.nativeQualityTier()){
-                    NoirNative.graphicsSetQuality(renderer.nativeQualityTier());
-                    nativeQualityVersion=renderer.nativeQualityTier();
-                }
-                if(renderer.mode()==NoirRenderer.Mode.RUNTIME){
-                    float[] rc=renderer.runtimeCameraState();
-                    NoirNative.graphicsFrameRuntime(rc[0],rc[1],rc[2],rc[3],rc[4],false);
-                }else{
-                    NoirRenderer.Camera c=renderer.camera();
-                    NoirNative.graphicsFrame(c.yaw,c.pitch,c.distance,c.targetX,c.targetY,c.targetZ,true);
-                }
-                renderer.setFrameTimeMs(NoirNative.graphicsFrameTimeMs());
-            }else{
-                renderer.onDrawFrame(gl);
+            if(!nativeGraphics) tryNativeInitialize();
+            if(!nativeGraphics) return;
+
+            if(nativeSceneVersion!=renderer.sceneSnapshotVersion()){
+                NoirNative.graphicsSetScene(renderer.sceneSnapshot());
+                float[] sun=renderer.environmentSunDirection();
+                NoirNative.graphicsSetEnvironment(
+                        renderer.environmentSkyMode(),
+                        renderer.environmentExposure(),
+                        renderer.environmentSkyBrightness(),
+                        renderer.environmentFogDensity(),
+                        sun[0],sun[1],sun[2]);
+                nativeSceneVersion=renderer.sceneSnapshotVersion();
+                renderer.markNativeSceneApplied();
             }
+            if(nativeQualityVersion!=renderer.nativeQualityTier()){
+                NoirNative.graphicsSetQuality(renderer.nativeQualityTier());
+                nativeQualityVersion=renderer.nativeQualityTier();
+            }
+            if(renderer.mode()==NoirRenderer.Mode.RUNTIME){
+                float[] rc=renderer.runtimeCameraState();
+                NoirNative.graphicsFrameRuntime(rc[0],rc[1],rc[2],rc[3],rc[4],false);
+            }else{
+                NoirRenderer.Camera c=renderer.camera();
+                NoirNative.graphicsFrame(c.yaw,c.pitch,c.distance,c.targetX,c.targetY,c.targetZ,true);
+            }
+            renderer.setFrameTimeMs(NoirNative.graphicsFrameTimeMs());
         }
     }
 
