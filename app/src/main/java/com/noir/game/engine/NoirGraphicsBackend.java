@@ -37,7 +37,7 @@ public final class NoirGraphicsBackend {
 
     public static void confirmVulkan(Context context){
         context.getSharedPreferences(PREFS,Context.MODE_PRIVATE).edit()
-                .putBoolean(KEY,Type.VULKAN.name())
+                .putString(KEY,Type.VULKAN.name())
                 .putBoolean(KEY_VULKAN_BLOCKED,false).apply();
     }
 
