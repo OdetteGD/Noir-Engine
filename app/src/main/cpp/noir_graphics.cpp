@@ -636,6 +636,12 @@ float Renderer::frameTimeMs() const{return impl_->frameMs;}
 const char* Renderer::backendInfo() const{return "NoirGFX C++ / OpenGL ES 3.0 • mobile PBR";}
 
 
+extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_graphicsFrameRuntime
+  (JNIEnv*,jclass,jfloat x,jfloat y,jfloat z,jfloat yaw,jfloat pitch,jboolean editorMode){
+    if(!gRenderer)return;
+    gRenderer->frameRuntime(x,y,z,yaw,pitch,editorMode);
+}
+
 extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_graphicsSetScene
   (JNIEnv* env,jclass,jfloatArray snapshot){
     if(!gRenderer||!snapshot)return;
