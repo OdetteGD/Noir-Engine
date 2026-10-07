@@ -161,38 +161,39 @@ public final class NoirScriptIdeView {
         ArrayList<String> out=new ArrayList<>();
         String[] lines=s.replace("\r","").split("\n",-1);
         int braces=0,parens=0,brackets=0;
-                    if(c=='\''){charLiteral=false;}
+        boolean blockComment=false,string=false,charLiteral=false;
 
         for(int li=0;li<lines.length;li++){
             String line=lines[li];
             boolean lineComment=false;
+
             for(int i=0;i<line.length();i++){
-                char c=line.charAt(i);
-                char n=i+1<line.length()?line.charAt(i+1):0;
+                char ch=line.charAt(i);
+                char next=i+1<line.length()?line.charAt(i+1):0;
 
                 if(blockComment){
-                    if(c=='*'&&n=='/'){blockComment=false;i++;}
+                    if(ch=='*'&&next=='/'){blockComment=false;i++;}
                     continue;
                 }
                 if(lineComment)continue;
 
-                if(!string&&!charLiteral&&c=='/'&&n=='*'){blockComment=true;i++;continue;}
-                if(!string&&!charLiteral&&c=='/'&&n=='/'){lineComment=true;continue;}
+                if(!string&&!charLiteral&&ch=='/'&&next=='*'){blockComment=true;i++;continue;}
+                if(!string&&!charLiteral&&ch=='/'&&next=='/'){lineComment=true;continue;}
 
                 if(string){
-                    if(c=='\\'){i++;continue;}
-                    if(c=='"')string=false;
+                    if(ch=='\\'){i++;continue;}
+                    if(ch=='"')string=false;
                     continue;
                 }
                 if(charLiteral){
-                    if(c=='\\'){i++;continue;}
-                    if(c=='\''){charLiteral=false;}
+                    if(ch=='\\'){i++;continue;}
+                    if(ch=='\'')charLiteral=false;
                     continue;
                 }
-                if(c=='"'){string=true;continue;}
-                if(c=='\''){charLiteral=true;}
+                if(ch=='"'){string=true;continue;}
+                if(ch=='\''){charLiteral=true;continue;}
 
-                if(c=='#'){
+                if(ch=='#'){
                     int firstNonWs=0;
                     while(firstNonWs<line.length()&&Character.isWhitespace(line.charAt(firstNonWs)))firstNonWs++;
                     if(i!=firstNonWs)
@@ -200,22 +201,27 @@ public final class NoirScriptIdeView {
                     continue;
                 }
 
-                if(c=='\u00f7'||c=='\u00a3'||c=='\u00d7'||c=='\u00a7'){
-                    out.add(String.format(Locale.US,"Line %d:%d invalid C# character U+%04X '%c'",li+1,i+1,(int)c,c));
+                if(ch=='\u00f7'||ch=='\u00a3'||ch=='\u00d7'||ch=='\u00a7'){
+                    out.add(String.format(Locale.US,"Line %d:%d invalid C# character U+%04X '%c'",
+                            li+1,i+1,(int)ch,ch));
                     continue;
                 }
 
-                if(!Character.isWhitespace(c) && !Character.isLetterOrDigit(c) && c!='_' && !isCSharpPunctuation(c)){
-                    out.add(String.format(Locale.US,"Line %d:%d invalid C# character U+%04X '%c'",li+1,i+1,(int)c,c));
+                if(!Character.isWhitespace(ch)&&!Character.isLetterOrDigit(ch)&&ch!='_'&&!isCSharpPunctuation(ch)){
+                    out.add(String.format(Locale.US,"Line %d:%d invalid C# character U+%04X '%c'",
+                            li+1,i+1,(int)ch,ch));
                     continue;
                 }
 
-                if(c=='{')braces++;
-                else if(c=='}')braces--;
-                else if(c=='(')parens++;
-                else if(c==')')parens--;
-                else if(c=='[')brackets++;
-                else if(c==']')brackets--;
+                switch(ch){
+                    case '{':braces++;break;
+                    case '}':braces--;break;
+                    case '(':parens++;break;
+                    case ')':parens--;break;
+                    case '[':brackets++;break;
+                    case ']':brackets--;break;
+                    default:break;
+                }
 
                 if(braces<0){out.add("Line "+(li+1)+":"+(i+1)+" unexpected '}'");braces=0;}
                 if(parens<0){out.add("Line "+(li+1)+":"+(i+1)+" unexpected ')'");parens=0;}
@@ -223,15 +229,15 @@ public final class NoirScriptIdeView {
             }
 
             String t=line.trim();
-            if(t.matches("^using\\s*;.*"))out.add("Line "+(li+1)+": using directive requires a namespace or type");
+            if(t.matches("^using\\s*;.*"))
+                out.add("Line "+(li+1)+": using directive requires a namespace or type");
             if(t.matches("^(class|struct|interface|enum)\\s+[^A-Za-z_].*"))
                 out.add("Line "+(li+1)+": type name must start with a letter or underscore");
             if(t.matches(".*\\b(if|for|while|switch|catch)\\s*\\([^)]*\\)\\s*[^\\{;].*"))
                 out.add("Line "+(li+1)+": control statement is missing its block");
 
-            // A line made mostly of symbol garbage is almost certainly accidental input.
-            if(t.matches("^[!\\$%&*+\\-./:<=>?@\\[\\]\\^|~#]+[A-Za-z0-9_]*$") &&
-               !t.endsWith(";") && !t.startsWith("//") && !t.startsWith("#")){
+            if(t.matches("^[!\\$%&*+\\-./:<=>?@\\[\\]\\^|~#]+[A-Za-z0-9_]*$")
+                    && !t.endsWith(";") && !t.startsWith("//") && !t.startsWith("#")){
                 out.add("Line "+(li+1)+": unexpected symbol-only expression");
             }
         }
