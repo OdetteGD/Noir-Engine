@@ -1,6 +1,6 @@
 name: Noir C# Mobile Scripting
 
-# .NET 10 keeps the Android workload on a supported TFM; net8.0-android is EOL.
+# .NET 10 / API 35 only. net8.0-android is EOL and must never enter the C# build graph.
 
 on:
   workflow_dispatch:
@@ -20,10 +20,24 @@ jobs:
       - name: Set up .NET 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "10.0.x"
+          dotnet-version: "10.0.401"
 
-      - name: Install .NET for Android workloads
-        run: dotnet workload install android wasm-tools --skip-manifest-update
+      - name: Verify SDK and target frameworks
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet --version
+          dotnet --info
+          if grep -R --line-number --fixed-strings "net8.0-android" csharp .github; then
+            echo "ERROR: EOL net8.0-android target found in the C# build graph."
+            exit 1
+          fi
+
+      - name: Install .NET for Android workload
+        run: dotnet workload install android --skip-manifest-update
+
+      - name: Verify Android workload
+        run: dotnet workload list
 
       - name: Restore compiler host
         run: dotnet restore csharp/Noir.CSharp.Compiler/Noir.CSharp.Compiler.csproj
@@ -35,9 +49,10 @@ jobs:
         run: dotnet build csharp/Noir.Mobile.Scripting/Noir.Mobile.Scripting.csproj -f net10.0-android35.0 --configuration Release
 
       - name: Build mobile C# game template
-        run: dotnet build csharp/Noir.GameTemplate/Noir.GameTemplate.csproj -f net10.0-android --configuration Release
+        run: dotnet build csharp/Noir.GameTemplate/Noir.GameTemplate.csproj -f net10.0-android35.0 --configuration Release
 
       - name: Validate sample C# script
         shell: bash
         run: |
-          dotnet run --project csharp/Noir.CSharp.Compiler/Noir.CSharp.Compiler.csproj --configuration Release --             validate csharp/Noir.GameTemplate/PlayerController.cs
+          set -euo pipefail
+          dotnet run --project csharp/Noir.CSharp.Compiler/Noir.CSharp.Compiler.csproj --configuration Release -- validate csharp/Noir.GameTemplate/PlayerController.cs
