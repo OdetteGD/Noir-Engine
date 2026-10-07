@@ -137,7 +137,7 @@ public final class NoirEditorView extends android.view.View {
             }
         }
 
-        fill(c,BG,0,0,w,h);
+        // Transparent editor overlay: the native 3D surface remains visible in the viewport.
         drawToolbar(c,w);
         drawTabs(c,w);
 
@@ -155,7 +155,7 @@ public final class NoirEditorView extends android.view.View {
 
         if(!state.playing){
             drawViewportChrome(c,w,h);
-            drawGizmo(c);
+            if(gizmoVisibleForSelection()) drawGizmo(c);
             drawDock(c,w,h);
         }
         drawStatusBar(c,w,h);
@@ -229,10 +229,6 @@ public final class NoirEditorView extends android.view.View {
             for(float x=vl+dp(40);x<vr;x+=dp(40))c.drawLine(x,ct,x,cb,p);
             for(float y=ct+dp(40);y<cb;y+=dp(40))c.drawLine(vl,y,vr,y,p);
         }
-        float ox=(vl+vr)*0.5f, oy=(ct+cb)*0.5f;
-        p.setStrokeWidth(dp(1.5f));p.setColor(0x706C7888);c.drawLine(ox,oy,ox+dp(58),oy,p);
-        p.setColor(0x706D8297);c.drawLine(ox,oy,ox,oy-dp(44),p);
-        p.setColor(0x705C79A6);c.drawLine(ox,oy,ox-dp(42),oy+dp(32),p);
         p.setStrokeWidth(1);p.setColor(0x503c4d69);c.drawRect(vl,ct,vr,cb,p);
         p.setStyle(Paint.Style.FILL);
 
@@ -548,6 +544,21 @@ public final class NoirEditorView extends android.view.View {
         }
         smallButton(c,l+dp(16),b-dp(52),dp(64),"CLEAR",false);
         smallButton(c,l+dp(88),b-dp(52),dp(76),"COPY",false);
+    }
+
+    private boolean gizmoVisibleForSelection(){
+        if(state.playing||state.selected==null||state.tool==EditorState.Tool.SELECT)return false;
+        switch(state.selected.kind){
+            case WORLD_ENVIRONMENT:
+            case SKY3D:
+            case FOG_VOLUME3D:
+            case POST_PROCESS3D:
+            case CAMERA3D:
+            case LIGHT3D:
+                return false;
+            default:
+                return true;
+        }
     }
 
     private void drawGizmo(Canvas c){
