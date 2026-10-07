@@ -973,13 +973,26 @@ public final class NoirEditorView extends android.view.View {
         NoirNode best=null;float bestD=Float.MAX_VALUE;
         for(NoirNode n:tree.visible()){
             if(n==state.scene.root||!n.visible||n.locked)continue;
-            float[] q=renderer.projectWorldToScreen(n.px,n.py,n.pz);
+            float[] wp=worldPosition(n);
+            float[] q=renderer.projectWorldToScreen(wp[0],wp[1],wp[2]);
             if(q==null)continue;
             float d=(float)Math.hypot(q[0]-x,q[1]-y);
             if(d<bestD&&d<dp(54)){best=n;bestD=d;}
         }
         if(best!=null){state.select(best);status="Selected "+best.name;}
         else status="No scene node under pointer";
+    }
+
+    private float[] worldPosition(NoirNode n){
+        float x=0,y=0,z=0;
+        ArrayDeque<NoirNode> chain=new ArrayDeque<>();
+        NoirNode cur=n;
+        while(cur!=null&&cur.parent!=null){chain.push(cur);cur=cur.parent;}
+        while(!chain.isEmpty()){
+            NoirNode p=chain.pop();
+            x+=p.px;y+=p.py;z+=p.pz;
+        }
+        return new float[]{x,y,z};
     }
 
     private void showNoirContextMenu(float x,float y){
