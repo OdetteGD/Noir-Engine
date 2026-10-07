@@ -200,6 +200,74 @@ void main(){
 }
 )GLSL";
 
+static constexpr const char* kSafeVs = R"GLSL(
+#version 300 es
+precision mediump float;
+const vec3 P[8]=vec3[8](
+    vec3(-1,-1,-1),vec3(1,-1,-1),vec3(1,1,-1),vec3(-1,1,-1),
+    vec3(-1,-1,1),vec3(1,-1,1),vec3(1,1,1),vec3(-1,1,1));
+const int I[36]=int[36](
+    0,1,2,0,2,3, 5,4,7,5,7,6, 4,0,3,4,3,7,
+    1,5,6,1,6,2, 3,2,6,3,6,7, 4,5,1,4,1,0);
+uniform mat4 uVP;
+uniform mat4 uModel;
+out vec3 vN;
+void main(){
+    int id=I[gl_VertexID];
+    vec3 p=P[id];
+    int face=gl_VertexID/6;
+    vN=face==0?vec3(0,0,-1):face==1?vec3(0,0,1):face==2?vec3(-1,0,0):
+       face==3?vec3(1,0,0):face==4?vec3(0,1,0):vec3(0,-1,0);
+    gl_Position=uVP*uModel*vec4(p,1.0);
+}
+)GLSL";
+
+static constexpr const char* kSafeFs = R"GLSL(
+#version 300 es
+precision mediump float;
+in vec3 vN;
+uniform vec3 uColor;
+uniform vec3 uSunDir;
+out vec4 frag;
+void main(){
+    vec3 N=normalize(vN);
+    float ndl=max(dot(N,normalize(-uSunDir)),0.0);
+    vec3 c=uColor*(0.28+0.72*ndl);
+    c=vec3(1.0)-exp(-c*1.25);
+    frag=vec4(pow(c,vec3(0.4545)),1.0);
+}
+)GLSL";
+
+static constexpr const char* kSafeSkyVs = R"GLSL(
+#version 300 es
+precision mediump float;
+out vec2 uv;
+void main(){
+    const vec2 P[3]=vec2[3](vec2(-1,-1),vec2(3,-1),vec2(-1,3));
+    uv=P[gl_VertexID]*0.5+0.5;
+    gl_Position=vec4(P[gl_VertexID],0,1);
+}
+)GLSL";
+
+static constexpr const char* kSafeSkyFs = R"GLSL(
+#version 300 es
+precision mediump float;
+in vec2 uv;
+uniform vec3 uSunDir;
+out vec4 frag;
+void main(){
+    float h=clamp(uv.y,0.0,1.0);
+    vec3 top=vec3(0.05,0.16,0.34);
+    vec3 horizon=vec3(0.55,0.66,0.78);
+    vec3 c=mix(horizon,top,pow(h,0.62));
+    vec2 p=uv*2.0-1.0;
+    vec3 ray=normalize(vec3(p.x*1.35,p.y,1.0));
+    float sun=max(dot(ray,normalize(-uSunDir)),0.0);
+    c+=vec3(1.0,0.68,0.34)*pow(sun,96.0)*0.7;
+    frag=vec4(c,1.0);
+}
+)GLSL";
+
 static constexpr const char* kSkyVs = R"GLSL(
 #version 300 es
 precision highp float;
@@ -359,7 +427,7 @@ static void addCube(std::vector<Vertex>& out,float x,float y,float z,float sx,fl
 } // namespace
 
 struct Renderer::Impl {
-    GLuint pbr=0,sky=0,vao=0,vbo=0,skyVao=0;
+    GLuint pbr=0,sky=0,safe=0,safeSky=0,vao=0,vbo=0,skyVao=0;
     GLuint shapeVbo[5]{},shapeVao[5]{};
     int shapeCount[5]{};
     std::vector<Vertex> objects;
@@ -373,6 +441,7 @@ struct Renderer::Impl {
     float fogDensity=0.018f;
     Vec3 sunDir{-0.38f,-0.82f,-0.32f};
     float qualityTier=1.0f;
+    bool safeMode=false;
 
     void destroy(){
         if(vbo)glDeleteBuffers(1,&vbo);
@@ -385,14 +454,50 @@ struct Renderer::Impl {
         }
         if(pbr)glDeleteProgram(pbr);
         if(sky)glDeleteProgram(sky);
-        vbo=vao=skyVao=pbr=sky=0;ready=false;
+        if(safe)glDeleteProgram(safe);
+        if(safeSky)glDeleteProgram(safeSky);
+        vbo=vao=skyVao=pbr=sky=safe=safeSky=0;ready=false;safeMode=false;
     }
 
     bool build(){
         while(glGetError()!=GL_NO_ERROR) {}
         g_lastError.clear();
-        pbr=program(kVs,kFs);sky=program(kSkyVs,kSkyFs);
-        if(!pbr||!sky)return false;
+        safeMode=false;
+        pbr=program(kVs,kFs);
+        sky=program(kSkyVs,kSkyFs);
+        if(!pbr||!sky){
+            if(pbr)glDeleteProgram(pbr);
+            if(sky)glDeleteProgram(sky);
+            pbr=sky=0;
+            safe=program(kSafeVs,kSafeFs);
+            safeSky=program(kSafeSkyVs,kSafeSkyFs);
+            if(!safe||!safeSky){
+                if(safe)glDeleteProgram(safe);
+                if(safeSky)glDeleteProgram(safeSky);
+                safe=safeSky=0;
+                setNativeError("renderer initialization", "both PBR and safe shaders failed");
+                return false;
+            }
+            glGenVertexArrays(1,&shapeVao[0]);
+            glBindVertexArray(shapeVao[0]);
+            std::vector<Vertex> cube;
+            addCube(cube,0,0,0,1,1,1);
+            shapeCount[0]=static_cast<int>(cube.size());
+            glGenBuffers(1,&shapeVbo[0]);
+            glBindBuffer(GL_ARRAY_BUFFER,shapeVbo[0]);
+            glBufferData(GL_ARRAY_BUFFER,cube.size()*sizeof(Vertex),cube.data(),GL_STATIC_DRAW);
+            glEnableVertexAttribArray(0);
+            glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,sizeof(Vertex),(void*)0);
+            glBindVertexArray(0);
+            glGenVertexArrays(1,&skyVao);
+            glEnable(GL_DEPTH_TEST);
+            glDepthFunc(GL_LEQUAL);
+            glDisable(GL_CULL_FACE);
+            safeMode=true;
+            ready=true;
+            NOIR_LOG("Complex native PBR failed; safe native C++ world renderer active");
+            return true;
+        }
 
         objects.clear();
         for(int z=-3;z<=3;z++) for(int x=-3;x<=3;x++){
@@ -473,9 +578,64 @@ struct Renderer::Impl {
             case 17:return {0.20f,0.60f,0.27f};   // FOLIAGE3D
             case 21:return {0.65f,0.46f,0.88f};   // REFLECTION_PROBE3D
             case 24:return {0.75f,0.50f,0.25f};   // SKY3D
-            case 35:return {0.42f,0.39f,0.34f};   // ROCK3D
+            case 36:return {0.42f,0.39f,0.34f};   // ROCK3D
             default:return {0.47f,0.52f,0.60f};
         }
+    }
+
+    void drawSafeScene(const Mat4& vp,const Vec3& cam){
+        glUseProgram(safe);
+        glBindVertexArray(shapeVao[0]);
+        GLint vpLoc=glGetUniformLocation(safe,"uVP");
+        GLint modelLoc=glGetUniformLocation(safe,"uModel");
+        GLint colorLoc=glGetUniformLocation(safe,"uColor");
+        GLint sunLoc=glGetUniformLocation(safe,"uSunDir");
+        glUniformMatrix4fv(vpLoc,1,GL_FALSE,vp.m);
+        glUniform3f(sunLoc,sunDir.x,sunDir.y,sunDir.z);
+        if(scene.empty()){
+            Mat4 m=model(0,-0.65f,0,0,0,0,20.0f,0.5f,20.0f);
+            glUniformMatrix4fv(modelLoc,1,GL_FALSE,m.m);
+            glUniform3f(colorLoc,0.22f,0.30f,0.22f);
+            glDrawArrays(GL_TRIANGLES,0,shapeCount[0]);
+            for(int i=0;i<6;i++){
+                float a=float(i)*1.04719755f;
+                m=model(std::cos(a)*6.0f,0.9f,std::sin(a)*6.0f,0,0,0,1.0f,1.8f,1.0f);
+                glUniformMatrix4fv(modelLoc,1,GL_FALSE,m.m);
+                glUniform3f(colorLoc,0.38f+0.04f*i,0.32f+0.025f*i,0.24f);
+                glDrawArrays(GL_TRIANGLES,0,shapeCount[0]);
+            }
+        }else{
+            int foliage=0;
+            int stride=qualityTier<=1.0f?3:(qualityTier<3.0f?2:1);
+            for(const SceneInstance& n:scene){
+                if(n.kind==23)continue;
+                if(n.kind==17 && ((foliage++)%stride)!=0)continue;
+                float sy=std::max(0.05f,std::fabs(n.sy));
+                if(n.kind==16)sy*=0.35f;
+                if(n.kind==15)sy=0.04f;
+                if(n.kind==17)sy*=0.65f;
+                Mat4 m=model(n.x,n.y,n.z,n.rx*0.0174532925f,n.ry*0.0174532925f,n.rz*0.0174532925f,
+                             std::max(0.05f,std::fabs(n.sx)),sy,std::max(0.05f,std::fabs(n.sz)));
+                Vec3 color=colorForKind(n.kind);
+                if(n.kind==17) color={0.15f,0.48f,0.20f};
+                if(n.kind==15) color={0.08f,0.35f,0.62f};
+                glUniformMatrix4fv(modelLoc,1,GL_FALSE,m.m);
+                glUniform3f(colorLoc,color.x,color.y,color.z);
+                glDrawArrays(GL_TRIANGLES,0,shapeCount[0]);
+            }
+        }
+        glBindVertexArray(0);
+    }
+
+    void drawSafeSky(){
+        glDisable(GL_DEPTH_TEST);
+        glUseProgram(safeSky);
+        glBindVertexArray(skyVao);
+        GLint sunLoc=glGetUniformLocation(safeSky,"uSunDir");
+        glUniform3f(sunLoc,sunDir.x,sunDir.y,sunDir.z);
+        glDrawArrays(GL_TRIANGLES,0,3);
+        glBindVertexArray(0);
+        glEnable(GL_DEPTH_TEST);
     }
 
     void drawSceneInstances(const Mat4& vp,const Vec3& cam){
@@ -503,7 +663,7 @@ struct Renderer::Impl {
             Vec3 color=colorForKind(n.kind);
             glUniform3f(glGetUniformLocation(pbr,"uColor"),color.x,color.y,color.z);
             glUniformMatrix4fv(glGetUniformLocation(pbr,"uModel"),1,GL_FALSE,m.m);
-            int shape=(n.kind==17)?1:(n.kind==35?2:(n.kind==16?3:(n.kind==15?4:0)));
+            int shape=(n.kind==17)?1:(n.kind==36?2:(n.kind==16?3:(n.kind==15?4:0)));
             glBindVertexArray(shapeVao[shape]);
             glDrawArrays(GL_TRIANGLES,0,shapeCount[shape]);
         }
@@ -610,6 +770,16 @@ void Renderer::frame(float yawDeg,float pitchDeg,float distance,float tx,float t
     Mat4 vp=mul(perspective(1.11701f,float(impl_->width)/float(impl_->height),0.05f,180.0f),
                 lookAt(cam,target,{0,1,0}));
 
+    if(impl_->safeMode){
+        impl_->drawSafeSky();
+        glEnable(GL_DEPTH_TEST);
+        glClear(GL_DEPTH_BUFFER_BIT);
+        impl_->drawSafeScene(vp,cam);
+        auto end=std::chrono::steady_clock::now();
+        impl_->frameMs=std::chrono::duration<float,std::milli>(end-start).count();
+        return;
+    }
+
     // No flat blue clear: a deep-space gradient is drawn first, then the
     // procedural world is rendered on top.
     glDisable(GL_DEPTH_TEST);
@@ -663,6 +833,16 @@ void Renderer::frameRuntime(float x,float y,float z,float yawDeg,float pitchDeg,
     Vec3 target=cam+forward;
     Mat4 vp=mul(perspective(1.11701f,float(impl_->width)/float(impl_->height),0.05f,180.0f),
                 lookAt(cam,target,{0,1,0}));
+
+    if(impl_->safeMode){
+        impl_->drawSafeSky();
+        glEnable(GL_DEPTH_TEST);
+        glClear(GL_DEPTH_BUFFER_BIT);
+        impl_->drawSafeScene(vp,cam);
+        auto end=std::chrono::steady_clock::now();
+        impl_->frameMs=std::chrono::duration<float,std::milli>(end-start).count();
+        return;
+    }
 
     glDisable(GL_DEPTH_TEST);
     glUseProgram(impl_->sky);
