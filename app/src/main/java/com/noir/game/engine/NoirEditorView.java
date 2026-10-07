@@ -104,11 +104,12 @@ public final class NoirEditorView extends android.view.View {
             leftW=nativeLayout[3];rightW=nativeLayout[4];
         }else{
             topBar=dp(compactUi?52:58);tabBar=dp(compactUi?42:48);bottomBar=dp(compactUi?28:30);
-            if(compactUi){leftW=0;rightW=0;}else{leftW=Math.max(dp(280),Math.min(dp(350),w*.255f));rightW=Math.max(dp(285),Math.min(dp(360),w*.26f));}
-        }
-        else{
-            leftW=Math.max(dp(280),Math.min(dp(350),w*0.255f));
-            rightW=Math.max(dp(285),Math.min(dp(360),w*0.26f));
+            if(compactUi){
+                leftW=0;rightW=0;
+            }else{
+                leftW=Math.max(dp(280),Math.min(dp(350),w*.255f));
+                rightW=Math.max(dp(285),Math.min(dp(360),w*.26f));
+            }
         }
 
         fill(c,0x00000000,0,0,w,h);
