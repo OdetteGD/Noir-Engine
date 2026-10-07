@@ -18,7 +18,7 @@ import java.nio.charset.StandardCharsets;
 public final class MainActivity extends Activity {
     private NoirRenderer renderer;
     private NoirEditorView editorUi;
-    private NoirSurface surface;
+    private NoirViewport surface;
 
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
