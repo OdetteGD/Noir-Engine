@@ -1,39 +1,108 @@
 package com.noir.game.engine.encryption;
 
-import javax.crypto.*;
-import javax.crypto.spec.*;
-import java.io.*;
-import java.nio.*;
+import javax.crypto.Cipher;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.PBEKeySpec;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
-import java.security.*;
+import java.security.GeneralSecurityException;
+import java.security.SecureRandom;
 import java.security.spec.KeySpec;
-import java.util.*;
+import java.util.Arrays;
 
-/**
- * Noir encrypted .game container. This is NOT Base64 and does not invent a new cryptographic
- * primitive: it uses AES-256-GCM and PBKDF2-HMAC-SHA256 inside a Noir-specific binary envelope.
- * The format is versioned, authenticated and intentionally opaque to casual source readers.
- */
 public final class NoirGameCrypto {
     private static final byte[] MAGIC={'N','O','I','R','G','A','M','E'};
-    private static final byte VERSION=1;
-    private static final int SALT=16, IV=12, ITER=120_000, KEY=256;
+    private static final byte VERSION_1=1;
+    private static final byte VERSION_2=2;
+    private static final int SALT_BYTES=16;
+    private static final int IV_BYTES=12;
+    private static final int KEY_BITS=256;
+    private static final int PBKDF2_V1=120_000;
+    private static final int PBKDF2_V2=600_000;
+    private static final int MAX_ITERATIONS=2_000_000;
+
     private NoirGameCrypto(){}
-    public static byte[] encrypt(String source,char[] password)throws GeneralSecurityException{return encrypt(source.getBytes(StandardCharsets.UTF_8),password);}
+
+    public static byte[] encrypt(String source,char[] password)throws GeneralSecurityException{
+        return encrypt(source.getBytes(StandardCharsets.UTF_8),password);
+    }
+
     public static byte[] encrypt(byte[] plain,char[] password)throws GeneralSecurityException{
-        if(password==null||password.length<8)throw new GeneralSecurityException("Noir key must contain at least 8 characters");
-        SecureRandom r=new SecureRandom();byte[] salt=new byte[SALT],iv=new byte[IV];r.nextBytes(salt);r.nextBytes(iv);
-        byte[] key=derive(password,salt);Cipher c=Cipher.getInstance("AES/GCM/NoPadding");c.init(Cipher.ENCRYPT_MODE,new SecretKeySpec(key,"AES"),new GCMParameterSpec(128,iv));c.updateAAD(header(salt,iv));byte[] enc=c.doFinal(plain);
-        ByteBuffer b=ByteBuffer.allocate(8+1+4+1+1+salt.length+iv.length+enc.length).order(ByteOrder.BIG_ENDIAN);b.put(MAGIC).put(VERSION).putInt(ITER).put((byte)SALT).put((byte)IV).put(salt).put(iv).put(enc);return b.array();
+        requirePassword(password);
+        SecureRandom random=new SecureRandom();
+        byte[] salt=new byte[SALT_BYTES],iv=new byte[IV_BYTES];
+        random.nextBytes(salt);random.nextBytes(iv);
+        byte[] key=null;
+        try{
+            key=derive(password,salt,PBKDF2_V2);
+            Cipher cipher=Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.ENCRYPT_MODE,new SecretKeySpec(key,"AES"),new GCMParameterSpec(128,iv));
+            cipher.updateAAD(header(VERSION_2,PBKDF2_V2,salt,iv));
+            byte[] encrypted=cipher.doFinal(plain);
+            ByteBuffer out=ByteBuffer.allocate(8+1+4+1+1+salt.length+iv.length+encrypted.length).order(ByteOrder.BIG_ENDIAN);
+            out.put(MAGIC).put(VERSION_2).putInt(PBKDF2_V2).put((byte)salt.length).put((byte)iv.length).put(salt).put(iv).put(encrypted);
+            return out.array();
+        }finally{
+            wipe(key);wipe(salt);wipe(iv);
+        }
     }
+
     public static byte[] decrypt(byte[] blob,char[] password)throws GeneralSecurityException{
-        ByteBuffer b=ByteBuffer.wrap(blob).order(ByteOrder.BIG_ENDIAN);byte[] magic=new byte[8];b.get(magic);if(!Arrays.equals(magic,MAGIC))throw new GeneralSecurityException("Not a Noir encrypted .game file");
-        if(b.get()!=VERSION)throw new GeneralSecurityException("Unsupported Noir .game encryption version");int iter=b.getInt();int sl=b.get()&255,il=b.get()&255;if(sl<12||il<12||b.remaining()<sl+il+17)throw new GeneralSecurityException("Corrupt Noir encrypted file");byte[] salt=new byte[sl],iv=new byte[il];b.get(salt).get(iv);byte[] enc=new byte[b.remaining()];b.get(enc);
-        byte[] key=derive(password,salt,iter);Cipher c=Cipher.getInstance("AES/GCM/NoPadding");c.init(Cipher.DECRYPT_MODE,new SecretKeySpec(key,"AES"),new GCMParameterSpec(128,iv));c.updateAAD(header(salt,iv));return c.doFinal(enc);
+        requirePassword(password);
+        if(blob==null||blob.length<8+1+4+1+1+12+12+17)throw new GeneralSecurityException("Corrupt Noir encrypted file");
+        ByteBuffer in=ByteBuffer.wrap(blob).order(ByteOrder.BIG_ENDIAN);
+        byte[] magic=new byte[8];in.get(magic);
+        if(!Arrays.equals(magic,MAGIC))throw new GeneralSecurityException("Not a Noir encrypted .game file");
+        byte version=in.get();
+        if(version!=VERSION_1&&version!=VERSION_2)throw new GeneralSecurityException("Unsupported Noir .game encryption version");
+        int iterations=in.getInt();
+        if(iterations<10_000||iterations>MAX_ITERATIONS)throw new GeneralSecurityException("Invalid key-derivation cost");
+        int saltLength=in.get()&255,ivLength=in.get()&255;
+        if(saltLength<12||saltLength>64||ivLength<12||ivLength>32||in.remaining()<saltLength+ivLength+17)throw new GeneralSecurityException("Corrupt Noir encrypted file");
+        byte[] salt=new byte[saltLength],iv=new byte[ivLength];in.get(salt).get(iv);
+        byte[] encrypted=new byte[in.remaining()];in.get(encrypted);
+        byte[] key=null;
+        try{
+            key=derive(password,salt,iterations);
+            Cipher cipher=Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.DECRYPT_MODE,new SecretKeySpec(key,"AES"),new GCMParameterSpec(128,iv));
+            cipher.updateAAD(header(version,iterations,salt,iv));
+            return cipher.doFinal(encrypted);
+        }finally{
+            wipe(key);wipe(salt);wipe(iv);wipe(encrypted);
+        }
     }
-    public static boolean isEncrypted(byte[] b){return b!=null&&b.length>=9&&Arrays.equals(Arrays.copyOf(b,8),MAGIC);}
-    public static String decryptText(byte[] blob,char[] password)throws GeneralSecurityException{return new String(decrypt(blob,password),StandardCharsets.UTF_8);}
-    private static byte[] derive(char[] p,byte[] s)throws GeneralSecurityException{return derive(p,s,ITER);}
-    private static byte[] derive(char[] p,byte[] s,int i)throws GeneralSecurityException{SecretKeyFactory f=SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");KeySpec spec=new PBEKeySpec(p,s,i,KEY);return f.generateSecret(spec).getEncoded();}
-    private static byte[] header(byte[] salt,byte[] iv){ByteBuffer b=ByteBuffer.allocate(8+1+4+1+1+salt.length+iv.length);b.put(MAGIC).put(VERSION).putInt(ITER).put((byte)salt.length).put((byte)iv.length).put(salt).put(iv);return b.array();}
+
+    public static String decryptText(byte[] blob,char[] password)throws GeneralSecurityException{
+        return new String(decrypt(blob,password),StandardCharsets.UTF_8);
+    }
+
+    public static boolean isEncrypted(byte[] data){
+        return data!=null&&data.length>=9&&Arrays.equals(Arrays.copyOf(data,8),MAGIC);
+    }
+
+    public static int encryptionVersion(byte[] data){
+        if(!isEncrypted(data))return 0;
+        return data[8]&255;
+    }
+
+    private static void requirePassword(char[] password)throws GeneralSecurityException{
+        if(password==null||password.length<8)throw new GeneralSecurityException("Noir key must contain at least 8 characters");
+    }
+
+    private static byte[] derive(char[] password,byte[] salt,int iterations)throws GeneralSecurityException{
+        SecretKeyFactory factory=SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+        KeySpec spec=new PBEKeySpec(password,salt,iterations,KEY_BITS);
+        return factory.generateSecret(spec).getEncoded();
+    }
+
+    private static byte[] header(byte version,int iterations,byte[] salt,byte[] iv){
+        ByteBuffer b=ByteBuffer.allocate(8+1+4+1+1+salt.length+iv.length).order(ByteOrder.BIG_ENDIAN);
+        return b.put(MAGIC).put(version).putInt(iterations).put((byte)salt.length).put((byte)iv.length).put(salt).put(iv).array();
+    }
+
+    private static void wipe(byte[] data){if(data!=null)Arrays.fill(data,(byte)0);}
 }
