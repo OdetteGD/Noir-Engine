@@ -16,15 +16,15 @@ tasks.register("prepareNoirCSharpAssets") {
         if (!noirCSharpBundle.isDirectory()) {
             throw new GradleException("Missing C# SDK bundle: $noirCSharpBundle. Build the Noir C# SDK before assembling the APK.")
         }
-        def dlls = fileTree(noirCSharpBundle) { include("*.dll") }.files
-        if (dlls.isEmpty()) {
+        def payload = fileTree(noirCSharpBundle) { include("**/*.dll", "**/*.json", "**/*.xml") }.files
+        if (payload.isEmpty()) {
             throw new GradleException("C# SDK bundle contains no DLLs: $noirCSharpBundle")
         }
         delete(noirCSharpGeneratedAssets)
         copy {
             from(noirCSharpBundle)
             into(new File(noirCSharpGeneratedAssets, "csharp/sdk"))
-            include("*.dll")
+            include("**/*.dll", "**/*.json", "**/*.xml")
         }
     }
 }
