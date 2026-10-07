@@ -1,6 +1,6 @@
 #include <jni.h>
 #include <cmath>
-#include <cstring>
+#include <cstring>\n#include <cstdio>
 #include <string>
 
 namespace {
