@@ -62,7 +62,10 @@ public final class NoirGameCompiler {
                 for(NoirScriptCompiler.Diagnostic d:checked.diagnostics)
                     result.diagnostics.add(new Diagnostic(file.getPath(),d.line,d.severity.name(),d.message));
                 if(checked.success()){
-                    File out=new File(file.getParentFile(),file.getName().replaceAll("\.game$","")+BYTECODE_EXTENSION);
+                    String baseName=file.getName();
+                    if(baseName.toLowerCase(Locale.US).endsWith(".game"))
+                        baseName=baseName.substring(0,baseName.length()-5);
+                    File out=new File(file.getParentFile(),baseName+BYTECODE_EXTENSION);
                     write(out,NoirGameBytecode.compileText(source).serialize());
                     result.compiledScripts++;
                 }
