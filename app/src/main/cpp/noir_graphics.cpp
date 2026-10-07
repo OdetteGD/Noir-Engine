@@ -10,6 +10,7 @@
 #include <vector>
 #include <chrono>
 #include <string>
+#include <cstdio>
 #include <jni.h>
 
 #define NOIR_LOG(...) __android_log_print(ANDROID_LOG_INFO, "NoirGfx", __VA_ARGS__)
