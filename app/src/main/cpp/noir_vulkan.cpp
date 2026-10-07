@@ -161,6 +161,22 @@ static bool makeDepth(){
 static std::vector<uint32_t> shader(const char*name){
     std::vector<uint32_t> out;if(!g.assets)return out;AAsset*a=AAssetManager_open(g.assets,name,AASSET_MODE_BUFFER);if(!a)return out;size_t bytes=AAsset_getLength(a);if(bytes<4){AAsset_close(a);return out;}out.resize((bytes+3)/4);AAsset_read(a,out.data(),bytes);AAsset_close(a);return out;
 }
+static bool makeFramebuffers(){
+    if(!g.renderPass||!g.depthView)return false;
+    for(uint32_t i=0;i<g.imageCount;i++){
+        VkImageView at[2]={g.views[i],g.depthView};
+        VkFramebufferCreateInfo fi{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
+        fi.renderPass=g.renderPass;
+        fi.attachmentCount=2;
+        fi.pAttachments=at;
+        fi.width=g.extent.width;
+        fi.height=g.extent.height;
+        fi.layers=1;
+        if(vkCreateFramebuffer(g.device,&fi,nullptr,&g.framebuffers[i])!=VK_SUCCESS)return false;
+    }
+    return true;
+}
+
 static bool makeRenderPass(){
     VkAttachmentDescription color{};color.format=g.format;color.samples=VK_SAMPLE_COUNT_1_BIT;color.loadOp=VK_ATTACHMENT_LOAD_OP_CLEAR;color.storeOp=VK_ATTACHMENT_STORE_OP_STORE;color.initialLayout=VK_IMAGE_LAYOUT_UNDEFINED;color.finalLayout=VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
     VkAttachmentDescription depth{};depth.format=g.depthFormat;depth.samples=VK_SAMPLE_COUNT_1_BIT;depth.loadOp=VK_ATTACHMENT_LOAD_OP_CLEAR;depth.storeOp=VK_ATTACHMENT_STORE_OP_DONT_CARE;depth.stencilLoadOp=VK_ATTACHMENT_LOAD_OP_DONT_CARE;depth.stencilStoreOp=VK_ATTACHMENT_STORE_OP_DONT_CARE;depth.initialLayout=VK_IMAGE_LAYOUT_UNDEFINED;depth.finalLayout=VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
@@ -272,7 +288,12 @@ static void rebuildVertices(){
     }
     std::memcpy(g.mapped,out.data(),bytes);g.vertexCount=static_cast<uint32_t>(out.size());
 }
-static bool makeAll(){if(!findDepthFormat()||!makeSwap()||!makeDepth()||!makeRenderPass()||!makePipeline()||!makeFrameResources())return false;rebuildVertices();return true;}
+static bool makeAll(){
+    if(!findDepthFormat()||!makeSwap()||!makeDepth()||!makeRenderPass()||
+       !makeFramebuffers()||!makePipeline()||!makeFrameResources())return false;
+    rebuildVertices();
+    return true;
+}
 static Mat4 viewProj(){float yr=g.yaw*0.0174532925f,pr=g.pitch*0.0174532925f;Vec3 cam{g.targetX+std::cos(pr)*std::cos(yr)*g.distance,g.targetY+std::sin(pr)*g.distance,g.targetZ+std::cos(pr)*std::sin(yr)*g.distance};return mul(perspective(1.117f,float(g.extent.width)/float(std::max(1u,g.extent.height)),0.05f,180),lookAt(cam,{g.targetX,g.targetY,g.targetZ},{0,1,0}));}
 static Vec3 cameraPos(){float yr=g.yaw*0.0174532925f,pr=g.pitch*0.0174532925f;return {g.targetX+std::cos(pr)*std::cos(yr)*g.distance,g.targetY+std::sin(pr)*g.distance,g.targetZ+std::cos(pr)*std::sin(yr)*g.distance};}
 static bool recordAndDraw(uint32_t image){
