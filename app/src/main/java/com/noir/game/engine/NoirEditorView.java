@@ -9,6 +9,7 @@ import android.widget.Toast;
 import com.noir.game.engine.animation.AnimationSystem;
 import com.noir.game.engine.editor.*;
 import com.noir.game.engine.render.NoirRenderer;
+import com.noir.game.engine.render.WorldEnvironmentSettings;
 import com.noir.game.engine.scene.NoirNode;
 import com.noir.game.engine.scripting.NoirCSharpProjectService;
 import com.noir.game.engine.scripting.NoirGameCompiler;
@@ -466,17 +467,26 @@ public final class NoirEditorView extends android.view.View {
 
     private void drawWorld(Canvas c,float l,float t,float r,float b){
         text(c,"WORLD / ENVIRONMENT",l+dp(16),t+dp(68),dp(11),TEXT);
-        String[] names={"SKY","CLOUDS","SUN SHADOWS","REFLECTIONS","FOG","PBR"};
+        text(c,"SKY MODE",l+dp(18),t+dp(96),dp(9),MUTED);
+        WorldEnvironmentSettings.SkyMode mode=renderer.environment().skyMode;
+        smallButton(c,l+dp(16),t+dp(106),dp(82),"PHYSICAL",mode==WorldEnvironmentSettings.SkyMode.PHYSICAL_SKY);
+        smallButton(c,l+dp(104),t+dp(106),dp(96),"PROCEDURAL",mode==WorldEnvironmentSettings.SkyMode.PROCEDURAL_SKY);
+        smallButton(c,l+dp(202),t+dp(106),dp(112),"SHADER MAT",mode==WorldEnvironmentSettings.SkyMode.SHADER_SKY_MATERIAL);
+
+        String[] names={"CLOUDS","SUN SHADOWS","REFLECTIONS","FOG","PBR"};
         for(int i=0;i<names.length;i++){
             boolean on=worldFlag(names[i]);
-            float y=t+dp(98)+i*dp(40);
+            float y=t+dp(160)+i*dp(40);
             text(c,names[i],l+dp(18),y+dp(18),dp(9),TEXT);
             smallButton(c,r-dp(92),y,dp(76),on?"ON":"OFF",on);
         }
-        text(c,"GRAPHICS BACKEND",l+dp(18),t+dp(326),dp(9),MUTED);
-        smallButton(c,l+dp(18),t+dp(338),dp(76),"GLES",renderer.graphicsBackend()==NoirRenderer.GraphicsBackend.GLES);
-        smallButton(c,l+dp(102),t+dp(338),dp(88),"VULKAN",renderer.graphicsBackend()==NoirRenderer.GraphicsBackend.VULKAN);
-        text(c,renderer.graphicsBackendStatus(),l+dp(18),t+dp(390),dp(8),MUTED);
+
+        text(c,"GRAPHICS BACKEND",l+dp(18),t+dp(374),dp(9),MUTED);
+        smallButton(c,l+dp(18),t+dp(386),dp(76),"GLES",renderer.graphicsBackend()==NoirRenderer.GraphicsBackend.GLES);
+        smallButton(c,l+dp(102),t+dp(386),dp(88),"VULKAN",renderer.graphicsBackend()==NoirRenderer.GraphicsBackend.VULKAN);
+        text(c,renderer.graphicsBackendStatus(),l+dp(18),t+dp(438),dp(8),MUTED);
+        text(c,renderer.nativeSceneApplied()?"SCENE SYNCED":"SCENE SYNC PENDING",l+dp(18),t+dp(458),dp(8),renderer.nativeSceneApplied()?GOOD:WARN);
+
         text(c,"QUALITY",l+dp(18),b-dp(112),dp(9),MUTED);
         smallButton(c,l+dp(74),b-dp(126),dp(62),"HIGH",false);
         smallButton(c,l+dp(140),b-dp(126),dp(62),"ULTRA",true);
@@ -625,6 +635,7 @@ public final class NoirEditorView extends android.view.View {
                 if(gizmo.dragging()){
                     if(gizmo.update(renderer,state.selected,x,y)){
                         if(state.snapping&&state.tool==EditorState.Tool.MOVE)snapNode(state.selected,state.snapStep);
+                        renderer.applyScene(state.scene);
                         state.log("Gizmo "+gizmo.status()+" -> "+state.selected.transformText());
                         status="Editing "+gizmo.status();
                     }
@@ -810,17 +821,39 @@ public final class NoirEditorView extends android.view.View {
     }
 
     private void handleWorldTap(float x,float y,float t,float b,float w){
-        if(y>t+dp(326)&&y<t+dp(382)){
-            if(x>=dp(12)&&x<dp(98)){
+        if(y>t+dp(102)&&y<t+dp(154)){
+            if(x>=dp(16)&&x<dp(98)) setSkyMode(WorldEnvironmentSettings.SkyMode.PHYSICAL_SKY);
+            else if(x>=dp(104)&&x<dp(202)) setSkyMode(WorldEnvironmentSettings.SkyMode.PROCEDURAL_SKY);
+            else if(x>=dp(202)&&x<dp(318)) setSkyMode(WorldEnvironmentSettings.SkyMode.SHADER_SKY_MATERIAL);
+            return;
+        }
+        if(y>t+dp(156)&&y<t+dp(366)&&x>w-dp(100)){
+            int idx=(int)((y-(t+dp(160)))/dp(40));
+            if(idx>=0&&idx<5){
+                String key=new String[]{"clouds","shadows","reflections","fog","pbr"}[idx];
+                String next=state.scene.environment.getOrDefault(key,"on").equals("on")?"off":"on";
+                state.scene.environment.put(key,next);
+                NoirNode env=state.scene.root.find("WorldEnvironment");
+                if(env!=null)env.properties.put(key,next);
+                boolean enabled="on".equals(next);
+                if("shadows".equals(key))renderer.quality().shadows=enabled;
+                else if("reflections".equals(key))renderer.quality().reflections=enabled;
+                else if("fog".equals(key))renderer.quality().fog=enabled;
+                else if("clouds".equals(key))renderer.quality().clouds=enabled;
+                renderer.applyScene(state.scene);
+                status="World "+key+" "+next;
+            }
+            return;
+        }
+        if(y>t+dp(374)&&y<t+dp(432)){
+            if(x>=dp(18)&&x<dp(96)){
                 NoirGraphicsBackend.save(getContext(),NoirGraphicsBackend.Type.GLES);
                 status="GLES selected • restart required";
                 new AlertDialog.Builder(getContext()).setTitle("Switch graphics backend")
                     .setMessage("GLES will become active after restarting the editor.")
                     .setNegativeButton("CANCEL",null)
-                    .setPositiveButton("RESTART",(d,which)->{
-                        try { ((android.app.Activity)getContext()).recreate(); } catch (Throwable ignored) {}
-                    }).show();
-            }else if(x>=dp(98)&&x<dp(202)){
+                    .setPositiveButton("RESTART",(d,which)->{ try { ((android.app.Activity)getContext()).recreate(); } catch (Throwable ignored) {} }).show();
+            }else if(x>=dp(102)&&x<dp(202)){
                 if(NoirGraphicsBackend.vulkanAvailable()){
                     boolean deviceReady=NoirGraphicsBackend.initializeVulkanStage();
                     if(deviceReady){
@@ -829,9 +862,7 @@ public final class NoirEditorView extends android.view.View {
                         new AlertDialog.Builder(getContext()).setTitle("Switch to Vulkan")
                             .setMessage("Vulkan will become the active renderer after restarting the editor.\n\n"+NoirGraphicsBackend.vulkanDeviceInfo())
                             .setNegativeButton("CANCEL",null)
-                            .setPositiveButton("RESTART",(d,which)->{
-                                try { ((android.app.Activity)getContext()).recreate(); } catch (Throwable ignored) {}
-                            }).show();
+                            .setPositiveButton("RESTART",(d,which)->{ try { ((android.app.Activity)getContext()).recreate(); } catch (Throwable ignored) {} }).show();
                     }else{
                         renderer.setGraphicsBackend(NoirRenderer.GraphicsBackend.GLES);
                         status="Vulkan init failed safely — GLES remains active";
@@ -852,24 +883,26 @@ public final class NoirEditorView extends android.view.View {
             else if(x>=dp(206)&&x<dp(290)){renderer.setQualityPreset(NoirRenderer.QualityPreset.EXTREME);status="Quality EXTREME";}
             return;
         }
-        if(y>t+dp(86)&&y<t+dp(350)&&x>w-dp(100)){
-            int idx=(int)((y-(t+dp(98)))/dp(40));
-            if(idx>=0&&idx<6){
-                String key=new String[]{"sky","clouds","shadows","reflections","fog","pbr"}[idx];
-                String next=state.scene.environment.getOrDefault(key,"on").equals("on")?"off":"on";
-                state.scene.environment.put(key,next);
-                boolean enabled="on".equals(next);
-                if("shadows".equals(key))renderer.quality().shadows=enabled;
-                else if("reflections".equals(key))renderer.quality().reflections=enabled;
-                else if("fog".equals(key))renderer.quality().fog=enabled;
-                else if("clouds".equals(key))renderer.quality().clouds=enabled;
-                status="World "+key+" "+next;
-            }
-        }else if(y>b-dp(88)&&x>dp(80)&&x<dp(145)){
+        if(y>b-dp(88)&&x>dp(80)&&x<dp(145)){
             renderer.quality().exposure=Math.max(0.2f,renderer.quality().exposure-0.1f);
         }else if(y>b-dp(88)&&x>dp(165)&&x<dp(225)){
             renderer.quality().exposure=Math.min(3.0f,renderer.quality().exposure+0.1f);
         }
+    }
+
+    private void setSkyMode(WorldEnvironmentSettings.SkyMode mode){
+        if(mode==null)return;
+        state.scene.environment.put("sky_mode",mode.name());
+        NoirNode env=state.scene.root.find("WorldEnvironment");
+        if(env!=null){
+            env.properties.put("sky_mode",mode.name());
+            if(mode==WorldEnvironmentSettings.SkyMode.SHADER_SKY_MATERIAL)
+                env.properties.put("sky_material","World.shader");
+        }
+        renderer.applyScene(state.scene);
+        status="Sky mode "+mode.name();
+        state.log("WorldEnvironment sky mode -> "+mode.name());
+        invalidate();
     }
 
     private boolean worldFlag(String key){
@@ -930,20 +963,20 @@ public final class NoirEditorView extends android.view.View {
         String id=kind.name()+"_"+(state.scene.flatten().size()+1);
         NoirNode n=new NoirNode(id,id,kind);
         n.px=parent.px+1f;n.py=parent.py;n.pz=parent.pz;
-        parent.add(n);state.select(n);state.log("Created "+n.name);status="Created "+n.name;invalidate();
+        parent.add(n);state.select(n);renderer.applyScene(state.scene);state.log("Created "+n.name);status="Created "+n.name;invalidate();
     }
 
     private void duplicateSelected(){
         if(state.selected==null||state.selected==state.scene.root)return;
         tree.duplicate(state.selected);
         NoirNode n=state.selected.parent.children.get(state.selected.parent.children.size()-1);
-        n.px+=0.75f;n.pz+=0.75f;state.select(n);status="Duplicated "+n.name;invalidate();
+        n.px+=0.75f;n.pz+=0.75f;state.select(n);renderer.applyScene(state.scene);status="Duplicated "+n.name;invalidate();
     }
 
     private void deleteSelected(){
         if(state.selected==null||state.selected==state.scene.root)return;
         NoirNode parent=state.selected.parent;
-        parent.remove(state.selected);state.select(parent);status="Node deleted";invalidate();
+        parent.remove(state.selected);state.select(parent);renderer.applyScene(state.scene);status="Node deleted";invalidate();
     }
 
     private void editVector(String title,NoirNode n,int mode){
@@ -958,7 +991,7 @@ public final class NoirEditorView extends android.view.View {
                 if(a.length==3)try{
                     float x=Float.parseFloat(a[0]),y=Float.parseFloat(a[1]),z=Float.parseFloat(a[2]);
                     if(mode==0){n.px=x;n.py=y;n.pz=z;}else if(mode==1){n.rx=x;n.ry=y;n.rz=z;}else{n.sx=x;n.sy=y;n.sz=z;}
-                    state.log(title+" updated for "+n.name);status=title+" updated";
+                    renderer.applyScene(state.scene);state.log(title+" updated for "+n.name);status=title+" updated";
                 }catch(Exception ex){Toast.makeText(getContext(),"Invalid vector",Toast.LENGTH_SHORT).show();}
                 invalidate();
             }).show();
