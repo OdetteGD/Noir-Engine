@@ -50,6 +50,7 @@ public final class MainActivity extends Activity {
             boolean useVulkan=preferred==NoirGraphicsBackend.Type.VULKAN && NoirGraphicsBackend.vulkanAvailable();
             renderer.setGraphicsBackend(useVulkan?NoirRenderer.GraphicsBackend.VULKAN:NoirRenderer.GraphicsBackend.GLES);
             if(useVulkan){
+                NoirGraphicsBackend.markVulkanStarted(this);
                 surface=new NoirVulkanSurface(this,renderer);
             }else{
                 surface=new NoirSurface(this,renderer);
