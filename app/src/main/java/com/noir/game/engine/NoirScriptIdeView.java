@@ -10,6 +10,7 @@ import android.text.TextWatcher;
 import android.text.style.ForegroundColorSpan;
 import android.view.Gravity;
 import android.widget.*;
+import android.text.InputType;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -43,6 +44,7 @@ public final class NoirScriptIdeView {
         editor.setGravity(Gravity.TOP|Gravity.START);
         editor.setTypeface(android.graphics.Typeface.MONOSPACE);
         editor.setSingleLine(false);
+        editor.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
         editor.setHorizontallyScrolling(true);
         editor.setPadding(16,12,16,12);
         editor.setBackgroundColor(Color.rgb(7,11,18));
