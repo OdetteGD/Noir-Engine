@@ -197,6 +197,11 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
 
     public Camera camera(){if(mode==Mode.EDITOR)editorCamera.updateOrbit();return editorCamera;}
     public RuntimeCamera runtimeCamera(){return runtimeCamera;}
+    public float[] runtimeCameraState(){
+        return new float[]{runtimeCamera.x,runtimeCamera.y,runtimeCamera.z,runtimeCamera.yaw,runtimeCamera.pitch};
+    }
+
+
     public Quality quality(){return quality;}
     public WorldEnvironmentSettings environment(){return environment;}
 
