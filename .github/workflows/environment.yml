@@ -46,9 +46,12 @@ jobs:
           OUT="build/noir-environment/${{ inputs.pack_name }}"
           test -d "$SRC"
           mkdir -p "$OUT"
-          find "$SRC" -type f \(
-            -iname '*.glb' -o -iname '*.gltf' -o -iname '*.bin' -o             -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o             -iname '*.webp' -o -iname '*.ktx2' -o -iname '*.hdr'
-          \) -exec cp --parents {} "$OUT" \;
+          (
+            cd "$SRC"
+            find . -type f \(
+              -iname '*.glb' -o -iname '*.gltf' -o -iname '*.bin' -o               -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o               -iname '*.webp' -o -iname '*.ktx2' -o -iname '*.hdr'
+            \) -exec cp --parents {} "$OLDPWD/$OUT" \;
+          )
           find "$OUT" -type f -printf '%P\n' | sort > build/noir-environment/files.txt
           test -s build/noir-environment/files.txt
 
