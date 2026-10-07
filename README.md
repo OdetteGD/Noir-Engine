@@ -56,7 +56,7 @@ The Android Release workflow builds the Noir API, mobile scripting SDK, game tem
 assets/csharp/sdk/*.dll
 ```
 
-This makes the C# SDK part of the engine APK instead of a separate untracked build output.
+The app also extracts the packaged DLLs into its private `files/noir-csharp/sdk/` directory at startup so the editor/runtime tooling can access the same bundle.
 
 ## Build
 
