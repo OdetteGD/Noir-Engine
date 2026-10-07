@@ -40,6 +40,7 @@ public final class MainActivity extends Activity {
             NoirScene scene=loadProjectScene(projectPath);
             EditorState editor=new EditorState(scene,projectPath);
             renderer=new NoirRenderer();
+            renderer.applyScene(scene);
 
             // NoirGFX C++ is the editor viewport. Java remains the editor interaction
             // layer; Vulkan stays isolated until its full scene pipeline is ready.
@@ -120,12 +121,21 @@ public final class MainActivity extends Activity {
 
         NoirNode root = scene.root;
         try {
-            if (root.find("WorldEnvironment") == null) {
-                NoirNode env = root.add(new NoirNode(
+            NoirNode env = root.find("WorldEnvironment");
+            if (env == null) {
+                env = root.add(new NoirNode(
                         "WorldEnvironment", "WorldEnvironment", NoirNode.Kind.WORLD_ENVIRONMENT));
-                env.properties.put("sky", "procedural");
-                env.properties.put("clouds", "procedural");
-                env.properties.put("exposure", "1.0");
+            }
+            env.properties.putIfAbsent("sky", "procedural");
+            env.properties.putIfAbsent("sky_mode", "PROCEDURAL_SKY");
+            env.properties.putIfAbsent("clouds", "procedural");
+            env.properties.putIfAbsent("sky_brightness", "1.0");
+            env.properties.putIfAbsent("exposure", "1.0");
+            env.properties.putIfAbsent("fog_density", "0.008");
+            NoirNode sky = env.children.stream().filter(n -> n.kind == NoirNode.Kind.SKY3D).findFirst().orElse(null);
+            if (sky == null) {
+                sky = env.add(new NoirNode("Sky3D", "Sky3D", NoirNode.Kind.SKY3D));
+                sky.properties.put("material", "ProceduralSkyMaterial");
             }
             if (root.find("Sun") == null) {
                 NoirNode sun = root.add(new NoirNode("Sun", "Sun", NoirNode.Kind.LIGHT3D));

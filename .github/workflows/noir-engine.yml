@@ -3,7 +3,7 @@ name: Noir Engine CI
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, noir-editor-upgrade, noir-editor-v1.2-world-csharp-vulkan]
 
 permissions:
   contents: read
@@ -22,7 +22,7 @@ jobs:
           dotnet-version: "10.0.401"
       - name: Install .NET Android workload
         run: dotnet workload install android --skip-manifest-update
-      - name: Build C# SDK bundle for Android
+      - name: Build complete C# SDK bundle for Android
         shell: bash
         run: |
           set -euo pipefail
@@ -38,8 +38,15 @@ jobs:
           cp csharp/Noir.GameTemplate/bin/Release/net10.0-android36.1/Noir.Game.dll build/csharp/sdk/
           cp csharp/Noir.Editor/bin/Release/net10.0/Noir.Editor.dll build/csharp/sdk/
           cp csharp/Noir.CSharp.Compiler/bin/Release/net10.0/Noir.CSharp.Compiler.dll build/csharp/sdk/
+          for f in csharp/Noir.CSharp.Compiler/bin/Release/net10.0/*.dll csharp/Noir.CSharp.Compiler/bin/Release/net10.0/*.json; do
+            [ -f "$f" ] && cp -f "$f" build/csharp/sdk/
+          done
           test -s build/csharp/sdk/Noir.dll
           test -s build/csharp/sdk/Noir.Game.dll
+          test -s build/csharp/sdk/Noir.CSharp.Compiler.dll
+          test -s build/csharp/sdk/Microsoft.CodeAnalysis.dll
+          test -s build/csharp/sdk/Microsoft.CodeAnalysis.CSharp.dll
+
       - name: Verify preinstalled Android SDK
         run: |
           set -euo pipefail

@@ -18,6 +18,7 @@ public final class NoirSurface extends GLSurfaceView implements NoirViewport {
     private boolean runtimeMoveTouch;
     private float pinchDistance;
     private boolean nativeGraphics;
+    private int nativeSceneVersion=-1;
 
     public void setEditorTapListener(EditorTapListener listener){editorTapListener=listener;}
 
@@ -51,6 +52,18 @@ public final class NoirSurface extends GLSurfaceView implements NoirViewport {
 
         @Override public void onDrawFrame(javax.microedition.khronos.opengles.GL10 gl){
             if(nativeGraphics){
+                if(nativeSceneVersion!=renderer.sceneSnapshotVersion()){
+                    NoirNative.graphicsSetScene(renderer.sceneSnapshot());
+                    float[] sun=renderer.environmentSunDirection();
+                    NoirNative.graphicsSetEnvironment(
+                            renderer.environmentSkyMode(),
+                            renderer.environmentExposure(),
+                            renderer.environmentSkyBrightness(),
+                            renderer.environmentFogDensity(),
+                            sun[0],sun[1],sun[2]);
+                    nativeSceneVersion=renderer.sceneSnapshotVersion();
+                    renderer.markNativeSceneApplied();
+                }
                 NoirRenderer.Camera c=renderer.camera();
                 NoirNative.graphicsFrame(c.yaw,c.pitch,c.distance,c.targetX,c.targetY,c.targetZ,
                         renderer.mode()==NoirRenderer.Mode.EDITOR);

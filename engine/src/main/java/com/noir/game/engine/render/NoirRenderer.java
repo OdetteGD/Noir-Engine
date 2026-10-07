@@ -4,6 +4,8 @@ import android.opengl.GLES30;
 import android.opengl.GLSurfaceView;
 import java.nio.*;
 import java.util.*;
+import com.noir.game.engine.scene.NoirNode;
+import com.noir.game.engine.scene.NoirScene;
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
@@ -88,6 +90,9 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
     private int cubeCount=0;
     private final float[] groundModel=new float[16];
     private float time;
+    private volatile float[] sceneSnapshot=new float[0];
+    private volatile int sceneSnapshotVersion;
+    private int nativeSceneVersion=-1;
 
     public NoirRenderer(){ setQualityPreset(QualityPreset.MOBILE); editorCamera.updateOrbit(); }
     public GraphicsBackend graphicsBackend(){return backend;}
@@ -195,6 +200,80 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
     public WorldEnvironmentSettings environment(){return environment;}
 
     /** Applies a scene environment profile without coupling the editor to GLES internals. */
+    public void applyScene(NoirScene scene){
+        if(scene==null)return;
+        applyWorldEnvironmentFromMap(scene);
+        setScene(scene);
+    }
+
+    private void applyWorldEnvironmentFromMap(NoirScene scene){
+        if(scene==null)return;
+        String mode=scene.environment.get("sky_mode");
+        String brightness=scene.environment.get("sky_brightness");
+        String exposure=scene.environment.get("exposure");
+        String fog=scene.environment.get("fog_density");
+        NoirNode envNode=scene.root.find("WorldEnvironment");
+        if(envNode!=null){
+            if(mode==null)mode=envNode.properties.get("sky_mode");
+            if(brightness==null)brightness=envNode.properties.get("sky_brightness");
+            if(exposure==null)exposure=envNode.properties.get("exposure");
+            if(fog==null)fog=envNode.properties.get("fog_density");
+        }
+        try{ if(mode!=null)environment.setSkyMode(WorldEnvironmentSettings.SkyMode.valueOf(mode.toUpperCase(Locale.US))); }catch(Exception ignored){}
+        try{ if(brightness!=null)environment.setSkyBrightness(Float.parseFloat(brightness)); }catch(Exception ignored){}
+        try{ if(exposure!=null)environment.setExposure(Float.parseFloat(exposure)); }catch(Exception ignored){}
+        try{ if(fog!=null)environment.setFog(Float.parseFloat(fog),environment.fogHeight); }catch(Exception ignored){}
+    }
+
+    public void setScene(NoirScene scene){
+        if(scene==null){sceneSnapshot=new float[0];sceneSnapshotVersion++;return;}
+        ArrayList<float[]> rows=new ArrayList<>();
+        collectSceneNodes(scene.root,0f,0f,0f,1f,1f,1f,0f,0f,0f,rows);
+        float[] packed=new float[rows.size()*10];
+        int o=0;
+        for(float[] row:rows){System.arraycopy(row,0,packed,o,10);o+=10;}
+        sceneSnapshot=packed;
+        sceneSnapshotVersion++;
+    }
+
+    private void collectSceneNodes(NoirNode node,float pX,float pY,float pZ,
+                                    float pSx,float pSy,float pSz,float pRx,float pRy,float pRz,
+                                    ArrayList<float[]> rows){
+        if(node!=null && node.parent!=null && node.visible && node.kind!=NoirNode.Kind.WORLD_ENVIRONMENT){
+            float wx=pX+node.px*pSx, wy=pY+node.py*pSy, wz=pZ+node.pz*pSz;
+            float wsx=pSx*node.sx, wsy=pSy==0f?node.sy:pSy*node.sy, wsz=pSz*node.sz;
+            if(!Float.isFinite(wsx)||Math.abs(wsx)<0.001f)wsx=node.sx;
+            if(!Float.isFinite(wsy)||Math.abs(wsy)<0.001f)wsy=node.sy;
+            if(!Float.isFinite(wsz)||Math.abs(wsz)<0.001f)wsz=node.sz;
+            rows.add(new float[]{wx,wy,wz,wsx,wsy,wsz,pRx+node.rx,pRy+node.ry,pRz+node.rz,node.kind.ordinal()});
+            pX=wx;pY=wy;pZ=wz;pSx=wsx;pSy=wsy;pSz=wsz;pRx+=node.rx;pRy+=node.ry;pRz+=node.rz;
+        }
+        if(node!=null) for(NoirNode child:node.children)
+            collectSceneNodes(child,pX,pY,pZ,pSx,pSy,pSz,pRx,pRy,pRz,rows);
+    }
+
+    public float[] sceneSnapshot(){return sceneSnapshot;}
+    public int sceneSnapshotVersion(){return sceneSnapshotVersion;}
+    public boolean nativeSceneApplied(){return nativeSceneVersion==sceneSnapshotVersion;}
+    public void markNativeSceneApplied(){nativeSceneVersion=sceneSnapshotVersion;}
+
+    public int environmentSkyMode(){
+        switch(environment.skyMode){
+            case PHYSICAL_SKY:return 1;
+            case PROCEDURAL_SKY:return 2;
+            case SHADER_SKY_MATERIAL:return 3;
+            case GRADIENT:return 4;
+            case CUBEMAP:return 5;
+            case HDRI:return 6;
+            default:return 0;
+        }
+    }
+
+    public float environmentExposure(){return environment.exposure;}
+    public float environmentSkyBrightness(){return environment.skyBrightness;}
+    public float environmentFogDensity(){return environment.fogDensity;}
+    public float[] environmentSunDirection(){return environment.sunDirection();}
+
     public void applyWorldEnvironment(WorldEnvironmentSettings settings){
         if(settings==null||!settings.valid())return;
         environment.skyMode=settings.skyMode;
