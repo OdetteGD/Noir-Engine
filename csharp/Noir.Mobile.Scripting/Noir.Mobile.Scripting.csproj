@@ -3,16 +3,24 @@
     <TargetFrameworks>net10.0;net10.0-android35.0</TargetFrameworks>
     <RootNamespace>Noir</RootNamespace>
     <AssemblyName>Noir.Mobile.Scripting</AssemblyName>
+    <LangVersion>14.0</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <IsTrimmable>true</IsTrimmable>
-    <NoWarn>$(NoWarn);CA1422</NoWarn>
+    <NoWarn>$(NoWarn);CA1422;CS1591</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-android35.0'">
     <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
     <AndroidUseLatestPlatformSdk>true</AndroidUseLatestPlatformSdk>
+    <RuntimeIdentifiers>android-arm64;android-x64</RuntimeIdentifiers>
     <DefineConstants>$(DefineConstants);NOIR_ANDROID</DefineConstants>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="docs/" Condition="Exists('README.md')" />
+  </ItemGroup>
 </Project>
