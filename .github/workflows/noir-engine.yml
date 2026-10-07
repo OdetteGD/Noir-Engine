@@ -17,6 +17,29 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.401"
+      - name: Install .NET Android workload
+        run: dotnet workload install android --skip-manifest-update
+      - name: Build C# SDK bundle for Android
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet build csharp/Noir.csproj --configuration Release
+          dotnet build csharp/Noir.CSharp.Compiler/Noir.CSharp.Compiler.csproj --configuration Release
+          dotnet build csharp/Noir.Mobile.Scripting/Noir.Mobile.Scripting.csproj -f net10.0-android36.1 --configuration Release
+          dotnet build csharp/Noir.GameTemplate/Noir.GameTemplate.csproj -f net10.0-android36.1 --configuration Release
+          dotnet build csharp/Noir.Editor/Noir.Editor.csproj --configuration Release
+          mkdir -p build/csharp/sdk
+          cp csharp/bin/Release/net10.0/Noir.dll build/csharp/sdk/
+          cp csharp/Noir.Mobile.Scripting/bin/Release/net10.0/Noir.Mobile.Scripting.dll build/csharp/sdk/
+          cp csharp/Noir.Mobile.Scripting/bin/Release/net10.0-android36.1/Noir.Mobile.Scripting.dll build/csharp/sdk/Noir.Mobile.Scripting.Android.dll
+          cp csharp/Noir.GameTemplate/bin/Release/net10.0-android36.1/Noir.Game.dll build/csharp/sdk/
+          cp csharp/Noir.Editor/bin/Release/net10.0/Noir.Editor.dll build/csharp/sdk/
+          cp csharp/Noir.CSharp.Compiler/bin/Release/net10.0/Noir.CSharp.Compiler.dll build/csharp/sdk/
+          test -s build/csharp/sdk/Noir.dll
+          test -s build/csharp/sdk/Noir.Game.dll
       - name: Verify preinstalled Android SDK
         run: |
           set -euo pipefail
