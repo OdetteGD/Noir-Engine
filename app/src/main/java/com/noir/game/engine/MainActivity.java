@@ -23,6 +23,9 @@ public final class MainActivity extends Activity {
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
         String projectPath=getIntent().getStringExtra("project_path");
+        if(projectPath!=null && !projectPath.trim().isEmpty()){
+            try{ new NoirProjectWorkspace(this).ensureCSharpLayout(new File(projectPath).getCanonicalFile()); }catch(Throwable ignored){}
+        }
         NoirScene scene=loadProjectScene(projectPath);
         EditorState editor=new EditorState(scene,projectPath);
         renderer=new NoirRenderer();
