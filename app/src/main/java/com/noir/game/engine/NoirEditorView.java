@@ -718,9 +718,17 @@ public final class NoirEditorView extends android.view.View {
                 status="Graphics backend: GLES";
             }else if(x>=dp(98)&&x<dp(202)){
                 if(NoirGraphicsBackend.vulkanAvailable()){
+                    boolean deviceReady=NoirGraphicsBackend.initializeVulkanStage();
                     renderer.setGraphicsBackend(NoirRenderer.GraphicsBackend.VULKAN);
                     NoirGraphicsBackend.save(getContext(),NoirGraphicsBackend.Type.VULKAN);
-                    status="Graphics backend: Vulkan";
+                    status=deviceReady
+                            ? "Vulkan device ready • GLES viewport fallback"
+                            : "Vulkan probe OK • GLES viewport fallback";
+                    Toast.makeText(getContext(),
+                            deviceReady
+                                    ? NoirGraphicsBackend.vulkanDeviceInfo()
+                                    : "Vulkan device init failed safely; GLES remains active.",
+                            Toast.LENGTH_SHORT).show();
                 }else{
                     renderer.setGraphicsBackend(NoirRenderer.GraphicsBackend.GLES);
                     NoirGraphicsBackend.save(getContext(),NoirGraphicsBackend.Type.GLES);
