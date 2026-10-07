@@ -24,7 +24,7 @@ import javax.microedition.khronos.opengles.GL10;
  */
 public final class NoirRenderer implements GLSurfaceView.Renderer {
     public enum Mode { EDITOR, RUNTIME }
-    public enum QualityPreset { MOBILE, HIGH, ULTRA, EXTREME }
+    public enum QualityPreset { MOBILE, MEDIUM, HIGH, ULTRA, EXTREME }
     public enum GraphicsBackend { GLES, VULKAN }
     private GraphicsBackend backend=GraphicsBackend.GLES;
     private boolean gpuReady;
@@ -93,8 +93,9 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
     private volatile float[] sceneSnapshot=new float[0];
     private volatile int sceneSnapshotVersion;
     private int nativeSceneVersion=-1;
+    private int nativeQualityTier=1;
 
-    public NoirRenderer(){ setQualityPreset(QualityPreset.MOBILE); editorCamera.updateOrbit(); }
+    public NoirRenderer(){ setQualityPreset(QualityPreset.MEDIUM); editorCamera.updateOrbit(); }
     public GraphicsBackend graphicsBackend(){return backend;}
     public boolean isGpuReady(){return gpuReady;}
     public void setGraphicsBackend(GraphicsBackend b){backend=b==null?GraphicsBackend.GLES:b;}
@@ -239,23 +240,56 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
     private void collectSceneNodes(NoirNode node,float pX,float pY,float pZ,
                                     float pSx,float pSy,float pSz,float pRx,float pRy,float pRz,
                                     ArrayList<float[]> rows){
-        if(node!=null && node.parent!=null && node.visible && node.kind!=NoirNode.Kind.WORLD_ENVIRONMENT){
+        if(node==null)return;
+        // Environment resources are background/render-state, never scene geometry.
+        if(node.kind==NoirNode.Kind.WORLD_ENVIRONMENT ||
+                node.kind==NoirNode.Kind.SKY3D ||
+                node.kind==NoirNode.Kind.FOG_VOLUME3D ||
+                node.kind==NoirNode.Kind.POST_PROCESS3D){
+            return;
+        }
+        if(node.parent!=null && node.visible){
             float wx=pX+node.px*pSx, wy=pY+node.py*pSy, wz=pZ+node.pz*pSz;
-            float wsx=pSx*node.sx, wsy=pSy==0f?node.sy:pSy*node.sy, wsz=pSz*node.sz;
+            float wsx=pSx*node.sx, wsy=pSy*node.sy, wsz=pSz*node.sz;
             if(!Float.isFinite(wsx)||Math.abs(wsx)<0.001f)wsx=node.sx;
             if(!Float.isFinite(wsy)||Math.abs(wsy)<0.001f)wsy=node.sy;
             if(!Float.isFinite(wsz)||Math.abs(wsz)<0.001f)wsz=node.sz;
-            rows.add(new float[]{wx,wy,wz,wsx,wsy,wsz,pRx+node.rx,pRy+node.ry,pRz+node.rz,node.kind.ordinal()});
+            if(isRenderableSceneKind(node.kind)){
+                rows.add(new float[]{wx,wy,wz,wsx,wsy,wsz,pRx+node.rx,pRy+node.ry,pRz+node.rz,node.kind.ordinal()});
+            }
             pX=wx;pY=wy;pZ=wz;pSx=wsx;pSy=wsy;pSz=wsz;pRx+=node.rx;pRy+=node.ry;pRz+=node.rz;
         }
-        if(node!=null) for(NoirNode child:node.children)
+        for(NoirNode child:node.children)
             collectSceneNodes(child,pX,pY,pZ,pSx,pSy,pSz,pRx,pRy,pRz,rows);
+    }
+
+    private static boolean isRenderableSceneKind(NoirNode.Kind kind){
+        switch(kind){
+            case CHARACTER3D:
+            case PLAYER3D:
+            case MESH3D:
+            case SKINNED_MESH3D:
+            case COLLIDER3D:
+            case RIGID_BODY3D:
+            case STATIC_BODY3D:
+            case AREA3D:
+            case WATER3D:
+            case TERRAIN3D:
+            case FOLIAGE3D:
+            case DECAL3D:
+            case SPLINE3D:
+            case VEHICLE3D:
+                return true;
+            default:
+                return false;
+        }
     }
 
     public float[] sceneSnapshot(){return sceneSnapshot;}
     public int sceneSnapshotVersion(){return sceneSnapshotVersion;}
     public boolean nativeSceneApplied(){return nativeSceneVersion==sceneSnapshotVersion;}
     public void markNativeSceneApplied(){nativeSceneVersion=sceneSnapshotVersion;}
+    public int nativeQualityTier(){return nativeQualityTier;}
 
     public int environmentSkyMode(){
         switch(environment.skyMode){
@@ -301,19 +335,24 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
     public void setQualityPreset(QualityPreset preset){
         switch(preset){
             case MOBILE:
+            case MEDIUM:
+                nativeQualityTier=1;
                 quality.shadowSize=1024; quality.shadowPcfRadius=1; quality.sunRays=true; quality.godRays=false;
                 quality.clouds=true; quality.reflections=true; quality.fog=true;
                 quality.bloom=false; quality.ambientOcclusion=false; quality.toneMapping=true; quality.colorGrading=false;
                 quality.exposure=1.25f; quality.renderScale=0.85f; break;
             case HIGH:
+                nativeQualityTier=2;
                 quality.shadowSize=1536; quality.shadowPcfRadius=1; quality.sunRays=true; quality.godRays=false;
                 quality.bloom=true; quality.ambientOcclusion=true; quality.toneMapping=true; quality.colorGrading=true;
                 quality.exposure=1.25f; quality.renderScale=1.0f; break;
             case ULTRA:
+                nativeQualityTier=3;
                 quality.shadowSize=2048; quality.shadowPcfRadius=2; quality.sunRays=true; quality.godRays=true;
                 quality.bloom=true; quality.ambientOcclusion=true; quality.toneMapping=true; quality.colorGrading=true;
                 quality.exposure=1.05f; quality.renderScale=1.0f; break;
             case EXTREME:
+                nativeQualityTier=4;
                 quality.shadowSize=2048; quality.shadowPcfRadius=2; quality.sunRays=true; quality.godRays=true;
                 quality.bloom=true; quality.ambientOcclusion=true; quality.toneMapping=true; quality.colorGrading=true;
                 quality.exposure=1.10f; quality.renderScale=1.0f; break;

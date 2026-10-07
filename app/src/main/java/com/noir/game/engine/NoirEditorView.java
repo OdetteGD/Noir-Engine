@@ -488,9 +488,11 @@ public final class NoirEditorView extends android.view.View {
         text(c,renderer.nativeSceneApplied()?"SCENE SYNCED":"SCENE SYNC PENDING",l+dp(18),t+dp(458),dp(8),renderer.nativeSceneApplied()?GOOD:WARN);
 
         text(c,"QUALITY",l+dp(18),b-dp(112),dp(9),MUTED);
-        smallButton(c,l+dp(74),b-dp(126),dp(62),"HIGH",false);
-        smallButton(c,l+dp(140),b-dp(126),dp(62),"ULTRA",true);
-        smallButton(c,l+dp(206),b-dp(126),dp(76),"EXTREME",false);
+        int qt=renderer.nativeQualityTier();
+        smallButton(c,l+dp(18),b-dp(126),dp(62),"MEDIUM",qt==1);
+        smallButton(c,l+dp(84),b-dp(126),dp(62),"HIGH",qt==2);
+        smallButton(c,l+dp(150),b-dp(126),dp(62),"ULTRA",qt==3);
+        smallButton(c,l+dp(216),b-dp(126),dp(80),"EXTREME",qt==4);
         text(c,"Exposure",l+dp(18),b-dp(60),dp(9),MUTED);
         smallButton(c,l+dp(86),b-dp(73),dp(42),"-",false);
         text(c,String.format(Locale.US,"%.2f",renderer.quality().exposure),l+dp(138),b-dp(52),dp(11),TEXT);
@@ -880,9 +882,11 @@ public final class NoirEditorView extends android.view.View {
             return;
         }
         if(y>b-dp(150)&&y<b-dp(100)){
-            if(x>dp(68)&&x<dp(140)){renderer.setQualityPreset(NoirRenderer.QualityPreset.HIGH);status="Quality HIGH";}
-            else if(x>=dp(140)&&x<dp(206)){renderer.setQualityPreset(NoirRenderer.QualityPreset.ULTRA);status="Quality ULTRA";}
-            else if(x>=dp(206)&&x<dp(290)){renderer.setQualityPreset(NoirRenderer.QualityPreset.EXTREME);status="Quality EXTREME";}
+            if(x>=dp(18)&&x<dp(82)){renderer.setQualityPreset(NoirRenderer.QualityPreset.MEDIUM);status="Quality MEDIUM";}
+            else if(x>=dp(84)&&x<dp(148)){renderer.setQualityPreset(NoirRenderer.QualityPreset.HIGH);status="Quality HIGH";}
+            else if(x>=dp(150)&&x<dp(214)){renderer.setQualityPreset(NoirRenderer.QualityPreset.ULTRA);status="Quality ULTRA";}
+            else if(x>=dp(216)&&x<dp(300)){renderer.setQualityPreset(NoirRenderer.QualityPreset.EXTREME);status="Quality EXTREME";}
+            state.log(status);
             return;
         }
         if(y>b-dp(88)&&x>dp(80)&&x<dp(145)){

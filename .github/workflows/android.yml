@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - noir-editor-upgrade
+      - noir-world-environment-quality
       - noir-editor-v1.2-world-csharp-vulkan
 
 permissions:
