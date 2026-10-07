@@ -10,6 +10,9 @@ public:
     bool initialize();
     void shutdown();
     void resize(int width, int height);
+    void setScene(const float* snapshot, int floatCount);
+    void setEnvironment(int skyMode, float exposure, float skyBrightness, float fogDensity,
+                        float sunX, float sunY, float sunZ);
     void frame(float yawDeg, float pitchDeg, float distance,
                float targetX, float targetY, float targetZ,
                bool editorMode);
