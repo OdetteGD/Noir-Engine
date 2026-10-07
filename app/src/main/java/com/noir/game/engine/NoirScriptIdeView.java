@@ -136,7 +136,7 @@ public final class NoirScriptIdeView {
                     if(!string&&!blockComment&&c=='/'&&n=='*'){blockComment=true;i++;continue;}
                     if(blockComment&&c=='*'&&n=='/'){blockComment=false;i++;continue;}
                     if(blockComment)continue;
-                    if(c=='"'&&(i==0||line.charAt(i-1)!='\\\\'))string=!string;
+                    if(c=='"'&&(i==0||line.charAt(i-1)!='\\'))string=!string;
                     if(string)continue;
                     if(c=='{')braces++;else if(c=='}')braces--;else if(c=='(')parens++;else if(c==')')parens--;else if(c=='[')brackets++;else if(c==']')brackets--;
                     if(braces<0){out.add("Line "+(li+1)+":"+ (i+1)+" unexpected '}'");braces=0;}
