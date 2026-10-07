@@ -20,7 +20,6 @@ import java.util.Locale;
 public final class NoirThreeViewport extends WebView implements NoirViewport {
     private final NoirRenderer renderer;
     private boolean pageReady;
-    private boolean runtime;
 
     public NoirThreeViewport(Context context, NoirRenderer renderer) {
         super(context);
@@ -46,7 +45,6 @@ public final class NoirThreeViewport extends WebView implements NoirViewport {
             }
         });
 
-        loadUrl("https://noir.local/");
         loadDataWithBaseURL(
                 "https://noir.local/",
                 readViewportHtml(),
@@ -57,7 +55,6 @@ public final class NoirThreeViewport extends WebView implements NoirViewport {
     }
 
     @Override public void setRuntimeMode(boolean runtime) {
-        this.runtime = runtime;
         evaluateJavascript("window.NoirViewport&&NoirViewport.setRuntime(" + runtime + ")", null);
         syncFromRenderer();
     }
