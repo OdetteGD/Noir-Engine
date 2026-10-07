@@ -1,11 +1,11 @@
 namespace Noir;
 
-public abstract class Resource : Object
+public abstract class NoirResource : Object
 {
-    public string ResourcePath { get; internal set; } = "";
+    public string NoirResourcePath { get; internal set; } = "";
 }
 
-public sealed class PackedScene : Resource
+public sealed class PackedScene : NoirResource
 {
     public Node Instantiate()
     {
@@ -14,9 +14,9 @@ public sealed class PackedScene : Resource
     }
 }
 
-public static class ResourceLoader
+public static class NoirResourceLoader
 {
-    public static T? Load<T>(string path) where T : Resource,new()
+    public static T? Load<T>(string path) where T : NoirResource,new()
     {
         if(string.IsNullOrWhiteSpace(path)) return null;
         return new T();
