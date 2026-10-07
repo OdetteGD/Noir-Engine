@@ -61,6 +61,7 @@ public final class NoirSurface extends GLSurfaceView implements NoirViewport {
                             renderer.environmentSkyBrightness(),
                             renderer.environmentFogDensity(),
                             sun[0],sun[1],sun[2]);
+                    NoirNative.graphicsSetQuality(renderer.nativeQualityTier());
                     nativeSceneVersion=renderer.sceneSnapshotVersion();
                     renderer.markNativeSceneApplied();
                 }
