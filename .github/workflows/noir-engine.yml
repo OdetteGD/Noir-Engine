@@ -3,7 +3,7 @@ name: Noir Engine CI
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, noir-editor-upgrade, noir-editor-v1.2-world-csharp-vulkan]
 
 permissions:
   contents: read
