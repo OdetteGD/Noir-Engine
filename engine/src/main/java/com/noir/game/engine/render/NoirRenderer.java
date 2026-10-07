@@ -22,7 +22,7 @@ import javax.microedition.khronos.opengles.GL10;
  * - editor orbit camera and runtime FPS/mobile look
  * - cached GPU buffers; no per-frame mesh allocation
  */
-public final class NoirRenderer implements GLSurfaceView.Renderer {
+public final class NoirRenderer {
     public enum Mode { EDITOR, RUNTIME }
     public enum QualityPreset { MOBILE, MEDIUM, HIGH, ULTRA, EXTREME }
     public enum GraphicsBackend { GLES, VULKAN }
@@ -101,7 +101,7 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
     public void setGraphicsBackend(GraphicsBackend b){backend=b==null?GraphicsBackend.GLES:b;}
     public String graphicsBackendStatus(){return backend==GraphicsBackend.VULKAN?"VULKAN • native backend / safe GLES fallback":"GLES 3.0 • Forward PBR";}
 
-    @Override public void onSurfaceCreated(GL10 gl,EGLConfig config){
+    /** Deprecated Java compatibility path; actual rendering is native C++. */ public void onSurfaceCreated(GL10 gl,EGLConfig config){
         gpuReady=false;
         GLES30.glClearColor(0.025f,0.04f,0.065f,1f);
         GLES30.glEnable(GLES30.GL_DEPTH_TEST);
@@ -170,12 +170,12 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
         gpuReady=true;
     }
 
-    @Override public void onSurfaceChanged(GL10 gl,int w,int h){
+    public void onSurfaceChanged(GL10 gl,int w,int h){
         width=Math.max(1,w); height=Math.max(1,h);
         GLES30.glViewport(0,0,width,height);
     }
 
-    @Override public void onDrawFrame(GL10 gl){
+    /** Deprecated Java compatibility path; not called by NoirSurface. */ public void onDrawFrame(GL10 gl){
         long now=System.nanoTime();
         float dt=Math.min(0.05f,(now-lastNanos)/1_000_000_000f);
         lastNanos=now;
@@ -284,6 +284,7 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
             case DECAL3D:
             case SPLINE3D:
             case VEHICLE3D:
+            case ROCK3D:
                 return true;
             default:
                 return false;
