@@ -30,6 +30,7 @@ public final class NoirNative {
     public static native String vulkanStatus();
     public static native String glesBackendInfo();
     public static native String graphicsLastError();
+    public static native boolean graphicsSafeMode();
     public static native boolean graphicsInitialize();
     public static native void graphicsResize(int width,int height);
     public static native String csharpToolchainScan(String directory);
