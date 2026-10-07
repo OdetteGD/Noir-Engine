@@ -50,7 +50,7 @@ public final class NoirEditorView extends android.view.View {
     private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
     private final EditorState state;
     private final NoirRenderer renderer;
-    private final NoirViewport surface;
+    private NoirViewport surface;
     private final SceneTreeModel tree;
     private final AnimationTimelineModel timeline=new AnimationTimelineModel();
     private final ScriptDocument script=new ScriptDocument();
@@ -84,6 +84,11 @@ public final class NoirEditorView extends android.view.View {
         setBackgroundColor(Color.TRANSPARENT);
         browserDir=state.projectRoot;
         state.log("Noir mobile editor ready");
+    }
+
+    public void setViewport(NoirViewport viewport){
+        if(viewport==null)return;
+        this.surface=viewport;
     }
 
     private float dp(float v){return v*density;}
