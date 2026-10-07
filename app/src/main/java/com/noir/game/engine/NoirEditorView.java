@@ -42,7 +42,7 @@ public final class NoirEditorView extends android.view.View {
     private static final int TEXT=NoirTheme.color("text",0xffedf3ff);
     private static final int MUTED=NoirTheme.color("muted",0xff8292ad);
     private static final int ACCENT=NoirTheme.color("accent",0xff5c8dff);
-    private static final int ACTIVE=0xff274d88;
+    private static final int ACTIVE=NoirTheme.color("accent",0xff5c79a6);
     private static final int GOOD=NoirTheme.color("good",0xff63e6a3);
     private static final int WARN=NoirTheme.color("warn",0xffffc85a);
     private static final int BAD=NoirTheme.color("bad",0xffff647d);
@@ -86,6 +86,22 @@ public final class NoirEditorView extends android.view.View {
     }
 
     private float dp(float v){return v*density;}
+    private int SURFACE_OR_PAPER(Canvas c){return PANEL;}
+    private void menuButton(Canvas c,float x,float y,float w,float h){
+        round(c,PANEL2,x,y,x+w,y+h,dp(6));stroke(c,BORDER,dp(1),x,y,x+w,y+h,dp(6));
+        p.setColor(TEXT);p.setStrokeWidth(dp(2));p.setStyle(Paint.Style.STROKE);
+        float cx=x+w/2f,cy=y+h/2f;
+        for(int i=-1;i<=1;i++)c.drawLine(cx-dp(7),cy+i*dp(5),cx+dp(7),cy+i*dp(5),p);
+        p.setStyle(Paint.Style.FILL);
+    }
+    private void chevronButton(Canvas c,float x,float y,boolean right){
+        p.setColor(MUTED);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(dp(1.8f));
+        Path q=new Path();
+        if(right){q.moveTo(x+dp(2),y+dp(6));q.lineTo(x+dp(8),y+dp(12));q.lineTo(x+dp(2),y+dp(18));}
+        else{q.moveTo(x+dp(8),y+dp(6));q.lineTo(x+dp(2),y+dp(12));q.lineTo(x+dp(8),y+dp(18));}
+        c.drawPath(q,p);p.setStyle(Paint.Style.FILL);
+    }
+
     private void fill(Canvas c,int color,float l,float t,float r,float b){p.setStyle(Paint.Style.FILL);p.setColor(color);c.drawRect(l,t,r,b,p);}
     private void round(Canvas c,int color,float l,float t,float r,float b,float rad){p.setStyle(Paint.Style.FILL);p.setColor(color);c.drawRoundRect(l,t,r,b,rad,rad,p);}
     private void stroke(Canvas c,int color,float width,float l,float t,float r,float b,float rad){p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(width);p.setColor(color);c.drawRoundRect(l,t,r,b,rad,rad,p);p.setStyle(Paint.Style.FILL);}
@@ -121,7 +137,7 @@ public final class NoirEditorView extends android.view.View {
             }
         }
 
-        fill(c,0x00000000,0,0,w,h);
+        fill(c,BG,0,0,w,h);
         drawToolbar(c,w);
         drawTabs(c,w);
 
@@ -147,7 +163,7 @@ public final class NoirEditorView extends android.view.View {
 
     private void drawStatusBar(Canvas c,float w,float h){
         float y=h-bottomBar;
-        fill(c,0xff0b111b,0,y,w,h);
+        fill(c,PANEL2,0,y,w,h);
         p.setStyle(Paint.Style.STROKE);
         p.setStrokeWidth(dp(1));
         p.setColor(BORDER);
@@ -166,17 +182,17 @@ public final class NoirEditorView extends android.view.View {
     private void drawToolbar(Canvas c,float w){
         fill(c,BG,0,0,w,topBar);
         if(compactUi){
-            bold(c,"NOIR",dp(12),dp(33),dp(20),Color.WHITE);
+            bold(c,"NOIR",dp(12),dp(33),dp(20),TEXT);
             text(c,"3D",dp(57),dp(31),dp(8),ACCENT);
             float x=dp(84),bw=dp(50),gap=dp(4);
             toolButton(c,x,dp(7),bw,dp(38),"SEL",state.tool==EditorState.Tool.SELECT); x+=bw+gap;
             toolButton(c,x,dp(7),bw,dp(38),"MOVE",state.tool==EditorState.Tool.MOVE); x+=bw+gap;
             toolButton(c,x,dp(7),bw,dp(38),"ROT",state.tool==EditorState.Tool.ROTATE); x+=bw+gap;
             toolButton(c,x,dp(7),bw,dp(38),"SCALE",state.tool==EditorState.Tool.SCALE);
-            toolButton(c,w-dp(54),dp(7),dp(46),dp(38),"•••",false);
+            menuButton(c,w-dp(54),dp(7),dp(46),dp(38));
             return;
         }
-        bold(c,"NOIR",dp(18),dp(36),dp(24),Color.WHITE);
+        bold(c,"NOIR",dp(18),dp(36),dp(24),TEXT);
         text(c,"3D ENGINE",dp(88),dp(27),dp(11),0xffa7b8d8);
         text(c,"MOBILE EDITOR",dp(88),dp(43),dp(9),MUTED);
         toolButton(c,dp(220),dp(9),dp(54),dp(40),"SEL",state.tool==EditorState.Tool.SELECT);
@@ -190,7 +206,7 @@ public final class NoirEditorView extends android.view.View {
     }
 
     private void drawTabs(Canvas c,float w){
-        fill(c,0xff0d131e,0,topBar,w,topBar+tabBar);
+        fill(c,SURFACE_OR_PAPER(c),0,topBar,w,topBar+tabBar);
         float y=topBar+dp(compactUi?3:6);
         float tw=compactUi?dp(70):Math.max(dp(66),Math.min(dp(94),(w-dp(14)-dp(4)*(tabs.length-1))/tabs.length));
         float step=tw+dp(4);
@@ -198,7 +214,7 @@ public final class NoirEditorView extends android.view.View {
         float x=dp(7)-tabScroll;
         for(int i=0;i<tabs.length;i++){toolButton(c,x,y,tw,dp(compactUi?34:36),tabs[i],i==tab);x+=step;}
         c.restore();
-        if(compactUi){text(c,"‹",dp(2),topBar+dp(27),dp(16),MUTED);text(c,"›",w-dp(12),topBar+dp(27),dp(16),MUTED);}
+        if(compactUi){chevronButton(c,dp(2),topBar+dp(13),false);chevronButton(c,w-dp(14),topBar+dp(13),true);}
     }
 
     private void drawViewportChrome(Canvas c,float w,float h){
@@ -208,15 +224,15 @@ public final class NoirEditorView extends android.view.View {
         if(vr-vl<dp(200))return;
 
         // Subtle editor grid and viewport frame. The GPU scene remains underneath this overlay.
-        p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(1);p.setColor(0x183c4d69);
+        p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(1);p.setColor(0x244B5563);
         if(state.grid){
             for(float x=vl+dp(40);x<vr;x+=dp(40))c.drawLine(x,ct,x,cb,p);
             for(float y=ct+dp(40);y<cb;y+=dp(40))c.drawLine(vl,y,vr,y,p);
         }
         float ox=(vl+vr)*0.5f, oy=(ct+cb)*0.5f;
-        p.setStrokeWidth(dp(1.5f));p.setColor(0x70ff6677);c.drawLine(ox,oy,ox+dp(58),oy,p);
-        p.setColor(0x7075e08a);c.drawLine(ox,oy,ox,oy-dp(44),p);
-        p.setColor(0x704d9fff);c.drawLine(ox,oy,ox-dp(42),oy+dp(32),p);
+        p.setStrokeWidth(dp(1.5f));p.setColor(0x706C7888);c.drawLine(ox,oy,ox+dp(58),oy,p);
+        p.setColor(0x706D8297);c.drawLine(ox,oy,ox,oy-dp(44),p);
+        p.setColor(0x705C79A6);c.drawLine(ox,oy,ox-dp(42),oy+dp(32),p);
         p.setStrokeWidth(1);p.setColor(0x503c4d69);c.drawRect(vl,ct,vr,cb,p);
         p.setStyle(Paint.Style.FILL);
 
