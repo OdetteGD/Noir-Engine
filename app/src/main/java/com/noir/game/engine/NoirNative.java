@@ -15,5 +15,8 @@ public final class NoirNative {
     public static native float sweepSphereAabb(float[] origin,float radius,float[] direction,float maxDistance,float[] min,float[] max);
     public static native boolean sphereAabbOverlap(float[] center,float radius,float[] min,float[] max);
     public static native float springDamper(float current,float velocity,float target,float stiffness,float damping,float dt);
+    public static native float fixedStepAlpha(float accumulator,float fixedDelta);
+    public static native int countAabbPairs(float[] boxes);
+    public static native float smoothDamp(float current,float target,float currentVelocity,float smoothTime,float maxSpeed,float dt);
     public static native String mobilePbrShader();
 }
