@@ -8,6 +8,7 @@ public:
     ~Renderer();
 
     bool initialize();
+    void shutdown();
     void resize(int width, int height);
     void frame(float yawDeg, float pitchDeg, float distance,
                float targetX, float targetY, float targetZ,
