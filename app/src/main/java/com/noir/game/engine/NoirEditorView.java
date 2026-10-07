@@ -935,7 +935,7 @@ public final class NoirEditorView extends android.view.View {
 
     private void checkCSharpSdk(){
         if(state.projectRoot==null){status="No project";return;}
-        File project=new File(state.projectRoot,"scripts/csharp/Noir.Game.csproj");
+        File project=new File(state.projectRoot,"csharp/Noir.Game/Noir.Game.csproj");
         status=project.isFile()?"C# .csproj detected":"C# project not created";
         state.log(status);
         Toast.makeText(getContext(),status,Toast.LENGTH_SHORT).show();
