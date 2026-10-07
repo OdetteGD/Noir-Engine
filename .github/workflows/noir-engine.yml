@@ -85,6 +85,9 @@ jobs:
           test -d "$ANDROID_SDK_ROOT/build-tools/35.0.0"
           test -d "$ANDROID_SDK_ROOT/cmake/3.22.1"
           test -d "$ANDROID_SDK_ROOT/ndk/28.1.13356709"
+          test -f app/src/main/cpp/noir_world_scene.cpp
+          test -f app/src/main/cpp/noir_world_scene.h
+          test -f app/src/main/java/com/noir/game/engine/NoirCrashReporter.java
 
       - name: Build debug engine app
         run: |
