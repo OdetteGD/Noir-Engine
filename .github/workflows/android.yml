@@ -81,7 +81,7 @@ jobs:
           grep -q 'worldEnvironmentGlesShader' app/src/main/java/com/noir/game/engine/NoirNative.java
           grep -q 'vulkanAttachSurface' app/src/main/java/com/noir/game/engine/NoirNative.java
           grep -q 'graphicsInitialize' app/src/main/java/com/noir/game/engine/NoirNative.java
-          grep -q 'NoirGFX' app/src/main/cpp/noir_gles.cpp
+          grep -q 'NoirGFX' app/src/main/cpp/noir_graphics.cpp
           grep -q 'renderer = noir_gfx' app/src/main/assets/projects/LoftArena/scenes/LoftArena.game
           grep -q 'csharp/Noir.Game' app/src/main/java/com/noir/game/engine/NoirProjectWorkspace.java
           grep -q 'shader_type' app/src/main/java/com/noir/game/engine/NoirScriptIdeView.java
