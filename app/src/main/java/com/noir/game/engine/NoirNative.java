@@ -7,6 +7,7 @@ public final class NoirNative {
     public static boolean isLoaded(){return loaded;}
     public static native void nativeSetGraphicsAPI(int index);
     public static native int nativeGetGraphicsAPI();
+    public static native boolean nativeApplyPendingGraphicsAPI();
     public static native String engineVersion();
     public static native long engineBuildId();
     public static native void stepRigidBody(float[] state,float dt,float gravity);
