@@ -30,6 +30,7 @@ public final class NoirNative {
     public static native void vulkanShutdown();
     public static native boolean vulkanDeviceReady();
     public static native String vulkanDeviceInfo();
+    public static native String vulkanFeatureInfo();
     public static native float[] editorLayout(float width,float height,float density);
     public static native boolean vulkanAttachSurface(android.view.Surface surface);
     public static native boolean vulkanDrawFrame();
