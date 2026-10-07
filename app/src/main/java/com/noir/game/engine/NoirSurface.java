@@ -35,19 +35,34 @@ public final class NoirSurface extends GLSurfaceView {
 
     private static final class MultisampleChooser implements EGLConfigChooser {
         @Override public EGLConfig chooseConfig(EGL10 egl,EGLDisplay display){
-            int[] attrs={
-                EGL10.EGL_RED_SIZE,8,EGL10.EGL_GREEN_SIZE,8,EGL10.EGL_BLUE_SIZE,8,
-                EGL10.EGL_ALPHA_SIZE,8,EGL10.EGL_DEPTH_SIZE,24,EGL10.EGL_STENCIL_SIZE,8,
-                EGL10.EGL_SAMPLE_BUFFERS,1,EGL10.EGL_SAMPLES,4,EGL10.EGL_NONE
+            EGLConfig[] configs=new EGLConfig[32];
+            int[] count=new int[1];
+
+            // Prefer MSAA, then progressively relax optional framebuffer features.
+            int[][] candidates={
+                {
+                    EGL10.EGL_RED_SIZE,8,EGL10.EGL_GREEN_SIZE,8,EGL10.EGL_BLUE_SIZE,8,
+                    EGL10.EGL_ALPHA_SIZE,8,EGL10.EGL_DEPTH_SIZE,24,EGL10.EGL_STENCIL_SIZE,8,
+                    EGL10.EGL_SAMPLE_BUFFERS,1,EGL10.EGL_SAMPLES,4,EGL10.EGL_NONE
+                },
+                {
+                    EGL10.EGL_RED_SIZE,8,EGL10.EGL_GREEN_SIZE,8,EGL10.EGL_BLUE_SIZE,8,
+                    EGL10.EGL_ALPHA_SIZE,8,EGL10.EGL_DEPTH_SIZE,24,EGL10.EGL_STENCIL_SIZE,8,
+                    EGL10.EGL_NONE
+                },
+                {
+                    EGL10.EGL_RED_SIZE,8,EGL10.EGL_GREEN_SIZE,8,EGL10.EGL_BLUE_SIZE,8,
+                    EGL10.EGL_ALPHA_SIZE,8,EGL10.EGL_DEPTH_SIZE,16,
+                    EGL10.EGL_NONE
+                }
             };
-            EGLConfig[] configs=new EGLConfig[16];int[] count=new int[1];
-            if(!egl.eglChooseConfig(display,attrs,configs,configs.length,count)||count[0]==0){
-                int[] fallback={EGL10.EGL_RED_SIZE,8,EGL10.EGL_GREEN_SIZE,8,EGL10.EGL_BLUE_SIZE,8,
-                    EGL10.EGL_ALPHA_SIZE,8,EGL10.EGL_DEPTH_SIZE,24,EGL10.EGL_STENCIL_SIZE,8,EGL10.EGL_NONE};
-                if(!egl.eglChooseConfig(display,fallback,configs,configs.length,count)||count[0]==0)
-                    throw new IllegalArgumentException("No compatible OpenGL ES 3 config");
+
+            for(int[] attrs:candidates){
+                count[0]=0;
+                if(egl.eglChooseConfig(display,attrs,configs,configs.length,count)&&count[0]>0)
+                    return configs[0];
             }
-            return configs[0];
+            throw new IllegalArgumentException("No compatible OpenGL ES 3 framebuffer configuration");
         }
     }
 
