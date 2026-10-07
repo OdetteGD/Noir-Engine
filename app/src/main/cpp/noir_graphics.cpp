@@ -268,6 +268,28 @@ static void addRock(std::vector<Vertex>& out){
     }
 }
 
+static void addTerrain(std::vector<Vertex>& out,float size,int cells){
+    float step=(size*2.0f)/float(cells);
+    for(int z=0;z<cells;z++)for(int x=0;x<cells;x++){
+        float x0=-size+x*step,x1=x0+step,z0=-size+z*step,z1=z0+step;
+        float h00=terrainHeight(x0,z0),h10=terrainHeight(x1,z0),h01=terrainHeight(x0,z1),h11=terrainHeight(x1,z1);
+        Vec3 a{x0,h00,z0},b{x1,h10,z0},cc{x1,h11,z1},d{x0,h01,z1};
+        Vec3 n0=norm(cross(b-a,cc-a)),n1=norm(cross(cc-a,d-a));
+        out.push_back({a.x,a.y,a.z,n0.x,n0.y,n0.z});
+        out.push_back({b.x,b.y,b.z,n0.x,n0.y,n0.z});
+        out.push_back({cc.x,cc.y,cc.z,n0.x,n0.y,n0.z});
+        out.push_back({a.x,a.y,a.z,n1.x,n1.y,n1.z});
+        out.push_back({cc.x,cc.y,cc.z,n1.x,n1.y,n1.z});
+        out.push_back({d.x,d.y,d.z,n1.x,n1.y,n1.z});
+    }
+}
+static void addWater(std::vector<Vertex>& out,float size,float y){
+    float s=size;
+    Vec3 a{-s,y,-s},b{s,y,-s},cc{s,y,s},d{-s,y,s},n{0,1,0};
+    out.push_back({a.x,a.y,a.z,n.x,n.y,n.z});out.push_back({b.x,b.y,b.z,n.x,n.y,n.z});out.push_back({cc.x,cc.y,cc.z,n.x,n.y,n.z});
+    out.push_back({a.x,a.y,a.z,n.x,n.y,n.z});out.push_back({cc.x,cc.y,cc.z,n.x,n.y,n.z});out.push_back({d.x,d.y,d.z,n.x,n.y,n.z});
+}
+
 static void addCube(std::vector<Vertex>& out,float x,float y,float z,float sx,float sy,float sz){
     static const float p[36][6]={
         {-1,-1,-1,0,0,-1},{1,-1,-1,0,0,-1},{1,1,-1,0,0,-1},
@@ -290,8 +312,8 @@ static void addCube(std::vector<Vertex>& out,float x,float y,float z,float sx,fl
 
 struct Renderer::Impl {
     GLuint pbr=0,sky=0,vao=0,vbo=0,skyVao=0;
-    GLuint shapeVbo[3]{},shapeVao[3]{};
-    int shapeCount[3]{};
+    GLuint shapeVbo[5]{},shapeVao[5]{};
+    int shapeCount[5]{};
     std::vector<Vertex> objects;
     std::vector<SceneInstance> scene;
     int width=1,height=1;
@@ -308,7 +330,7 @@ struct Renderer::Impl {
         if(vbo)glDeleteBuffers(1,&vbo);
         if(vao)glDeleteVertexArrays(1,&vao);
         if(skyVao)glDeleteVertexArrays(1,&skyVao);
-        for(int i=0;i<3;i++){
+        for(int i=0;i<5;i++){
             if(shapeVbo[i])glDeleteBuffers(1,&shapeVbo[i]);
             if(shapeVao[i])glDeleteVertexArrays(1,&shapeVao[i]);
             shapeVbo[i]=shapeVao[i]=0;shapeCount[i]=0;
@@ -352,7 +374,9 @@ struct Renderer::Impl {
         addCube(shapes[0],0,0,0,1,1,1);
         addCone(shapes[1],1.0f,2.0f,12);
         addRock(shapes[2]);
-        for(int s=0;s<3;s++){
+        addTerrain(shapes[3],1.0f,18);
+        addWater(shapes[4],1.0f,0.0f);
+        for(int s=0;s<5;s++){
             shapeCount[s]=static_cast<int>(shapes[s].size());
             glGenVertexArrays(1,&shapeVao[s]);
             glGenBuffers(1,&shapeVbo[s]);
@@ -427,7 +451,7 @@ struct Renderer::Impl {
             Vec3 color=colorForKind(n.kind);
             glUniform3f(glGetUniformLocation(pbr,"uColor"),color.x,color.y,color.z);
             glUniformMatrix4fv(glGetUniformLocation(pbr,"uModel"),1,GL_FALSE,m.m);
-            int shape=(n.kind==17)?1:(n.kind==5?2:0);
+            int shape=(n.kind==17)?1:(n.kind==5?2:(n.kind==16?3:(n.kind==15?4:0)));
             glBindVertexArray(shapeVao[shape]);
             glDrawArrays(GL_TRIANGLES,0,shapeCount[shape]);
         }
