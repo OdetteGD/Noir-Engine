@@ -3,19 +3,19 @@
 
 namespace {
 struct Theme {
-    const char* background="#080D16";
-    const char* surface="#111A28";
-    const char* surface2="#172235";
-    const char* border="#293A55";
-    const char* accent="#5C8DFF";
-    const char* accent2="#7A5CFF";
-    const char* text="#EDF3FF";
-    const char* muted="#8292AD";
-    const char* good="#63E6A3";
-    const char* warn="#FFC85A";
-    const char* bad="#FF647D";
-    float corner=9.0f;
-    float spacing=6.0f;
+    const char* background="#F6F3EC";
+    const char* surface="#FFFDF8";
+    const char* surface2="#ECE8DE";
+    const char* border="#D7D0C4";
+    const char* accent="#5C79A6";
+    const char* accent2="#8A6F52";
+    const char* text="#2C3036";
+    const char* muted="#6E737B";
+    const char* good="#347A57";
+    const char* warn="#9A6A22";
+    const char* bad="#B14949";
+    float corner=7.0f;
+    float spacing=7.0f;
 };
 static Theme g_theme;
 }
