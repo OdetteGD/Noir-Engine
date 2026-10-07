@@ -6,6 +6,7 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.TextView;
+import android.view.View;
 import android.graphics.Color;
 import com.noir.game.engine.core.GameFileParser;
 import com.noir.game.engine.editor.EditorState;
@@ -18,7 +19,7 @@ import java.nio.charset.StandardCharsets;
 public final class MainActivity extends Activity {
     private NoirRenderer renderer;
     private NoirEditorView editorUi;
-    private NoirViewport surface;
+    private View surface;
 
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
@@ -54,7 +55,7 @@ public final class MainActivity extends Activity {
                 if(preferred==NoirGraphicsBackend.Type.VULKAN)NoirGraphicsBackend.save(this,NoirGraphicsBackend.Type.GLES);
             }
             surface.setEditorTapListener((x,y)->{});
-            editorUi=new NoirEditorView(this,editor,renderer,surface);
+            editorUi=new NoirEditorView(this,editor,renderer,(NoirViewport)surface);
 
             FrameLayout root=new FrameLayout(this);
             root.setBackgroundColor(Color.rgb(11,18,32));
