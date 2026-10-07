@@ -240,16 +240,24 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
     private void collectSceneNodes(NoirNode node,float pX,float pY,float pZ,
                                     float pSx,float pSy,float pSz,float pRx,float pRy,float pRz,
                                     ArrayList<float[]> rows){
-        if(node!=null && node.parent!=null && node.visible && node.kind!=NoirNode.Kind.WORLD_ENVIRONMENT){
+        if(node==null)return;
+        // Environment resources are background/render-state, never scene geometry.
+        if(node.kind==NoirNode.Kind.WORLD_ENVIRONMENT ||
+                node.kind==NoirNode.Kind.SKY3D ||
+                node.kind==NoirNode.Kind.FOG_VOLUME3D ||
+                node.kind==NoirNode.Kind.POST_PROCESS3D){
+            return;
+        }
+        if(node.parent!=null && node.visible){
             float wx=pX+node.px*pSx, wy=pY+node.py*pSy, wz=pZ+node.pz*pSz;
-            float wsx=pSx*node.sx, wsy=pSy==0f?node.sy:pSy*node.sy, wsz=pSz*node.sz;
+            float wsx=pSx*node.sx, wsy=pSy*node.sy, wsz=pSz*node.sz;
             if(!Float.isFinite(wsx)||Math.abs(wsx)<0.001f)wsx=node.sx;
             if(!Float.isFinite(wsy)||Math.abs(wsy)<0.001f)wsy=node.sy;
             if(!Float.isFinite(wsz)||Math.abs(wsz)<0.001f)wsz=node.sz;
             rows.add(new float[]{wx,wy,wz,wsx,wsy,wsz,pRx+node.rx,pRy+node.ry,pRz+node.rz,node.kind.ordinal()});
             pX=wx;pY=wy;pZ=wz;pSx=wsx;pSy=wsy;pSz=wsz;pRx+=node.rx;pRy+=node.ry;pRz+=node.rz;
         }
-        if(node!=null) for(NoirNode child:node.children)
+        for(NoirNode child:node.children)
             collectSceneNodes(child,pX,pY,pZ,pSx,pSy,pSz,pRx,pRy,pRz,rows);
     }
 
