@@ -44,8 +44,15 @@ public final class MainActivity extends Activity {
 
             // NoirGFX C++ is the editor viewport. Java remains the editor interaction
             // layer; Vulkan stays isolated until its full scene pipeline is ready.
-            renderer.setGraphicsBackend(NoirRenderer.GraphicsBackend.GLES);
-            surface=new NoirSurface(this,renderer);
+            NoirGraphicsBackend.Type preferred=NoirGraphicsBackend.load(this);
+            boolean useVulkan=preferred==NoirGraphicsBackend.Type.VULKAN && NoirGraphicsBackend.vulkanAvailable();
+            renderer.setGraphicsBackend(useVulkan?NoirRenderer.GraphicsBackend.VULKAN:NoirRenderer.GraphicsBackend.GLES);
+            if(useVulkan){
+                surface=new NoirVulkanSurface(this,renderer);
+            }else{
+                surface=new NoirSurface(this,renderer);
+                if(preferred==NoirGraphicsBackend.Type.VULKAN)NoirGraphicsBackend.save(this,NoirGraphicsBackend.Type.GLES);
+            }
             surface.setEditorTapListener((x,y)->{});
             editorUi=new NoirEditorView(this,editor,renderer,surface);
 
