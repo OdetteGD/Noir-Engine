@@ -54,7 +54,6 @@ public final class MainActivity extends Activity {
                 surface=new NoirSurface(this,renderer);
                 if(preferred==NoirGraphicsBackend.Type.VULKAN)NoirGraphicsBackend.save(this,NoirGraphicsBackend.Type.GLES);
             }
-            surface.setEditorTapListener((x,y)->{});
             editorUi=new NoirEditorView(this,editor,renderer,(NoirViewport)surface);
 
             FrameLayout root=new FrameLayout(this);
