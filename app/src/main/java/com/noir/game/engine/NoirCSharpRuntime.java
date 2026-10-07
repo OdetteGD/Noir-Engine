@@ -3,7 +3,6 @@ package com.noir.game.engine;
 import android.content.Context;
 import java.io.*;
 import java.util.*;
-import android.os.Environment;
 
 /** Installs the complete C# SDK/compiler payload from APK assets into app-private storage. */
 public final class NoirCSharpRuntime {
@@ -11,7 +10,7 @@ public final class NoirCSharpRuntime {
     private NoirCSharpRuntime(){}
 
     public static File ensureInstalled(Context context) throws IOException {
-        File external=context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS);
+        File external=context.getExternalFilesDir(null);
         if(external==null)throw new IOException("External app storage unavailable");
         File root=new File(external,"noir-csharp/sdk");
         if(!root.exists() && !root.mkdirs()) throw new IOException("Unable to create C# SDK directory");
