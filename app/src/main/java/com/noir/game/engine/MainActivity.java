@@ -57,7 +57,7 @@ public final class MainActivity extends Activity {
             editorUi=new NoirEditorView(this,editor,renderer,(NoirViewport)surface);
 
             FrameLayout root=new FrameLayout(this);
-            root.setBackgroundColor(Color.rgb(11,18,32));
+            root.setBackgroundColor(NoirTheme.color("background",Color.rgb(246,243,236)));
             root.addView(surface,new FrameLayout.LayoutParams(-1,-1));
             root.addView(editorUi,new FrameLayout.LayoutParams(-1,-1));
             setContentView(root);
@@ -83,7 +83,7 @@ public final class MainActivity extends Activity {
                 +"The project could not initialize the editor.\n"
                 +"A safe fallback scene was prepared, but the current graphics surface failed.\n\n"
                 +"Open the project again after checking the editor logs.");
-        view.setBackgroundColor(Color.rgb(18,20,24));
+        view.setBackgroundColor(NoirTheme.color("surface",Color.rgb(255,253,248)));
         setContentView(view);
     }
 
