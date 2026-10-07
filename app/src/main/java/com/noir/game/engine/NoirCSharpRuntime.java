@@ -3,6 +3,7 @@ package com.noir.game.engine;
 import android.content.Context;
 import java.io.*;
 import java.util.*;
+import android.os.Environment;
 
 /** Installs the complete C# SDK/compiler payload from APK assets into app-private storage. */
 public final class NoirCSharpRuntime {
@@ -10,7 +11,9 @@ public final class NoirCSharpRuntime {
     private NoirCSharpRuntime(){}
 
     public static File ensureInstalled(Context context) throws IOException {
-        File root=new File(context.getFilesDir(),"noir-csharp/sdk");
+        File external=context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS);
+        if(external==null)throw new IOException("External app storage unavailable");
+        File root=new File(external,"noir-csharp/sdk");
         if(!root.exists() && !root.mkdirs()) throw new IOException("Unable to create C# SDK directory");
         String[] names=context.getAssets().list(ASSET_ROOT);
         if(names==null) names=new String[0];
@@ -33,6 +36,15 @@ public final class NoirCSharpRuntime {
             throw new IOException("C# toolchain bundle is incomplete: core/compiler/Roslyn DLL missing");
 
         return root;
+    }
+
+    public static File sdkDirectory(Context context){
+        try{return ensureInstalled(context);}catch(IOException e){return null;}
+    }
+
+    public static boolean hasDll(Context context,String dllName){
+        if(dllName==null||dllName.isEmpty())return false;
+        File root=sdkDirectory(context);return root!=null&&new File(root,dllName).isFile();
     }
 
     public static String toolchainInfo(Context context) {
