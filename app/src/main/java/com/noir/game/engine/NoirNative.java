@@ -33,6 +33,7 @@ public final class NoirNative {
     public static native void graphicsSetEnvironment(int skyMode,float exposure,float skyBrightness,float fogDensity,float sunX,float sunY,float sunZ);
     public static native void graphicsSetQuality(int qualityTier);
     public static native void graphicsFrame(float yaw,float pitch,float distance,float targetX,float targetY,float targetZ,boolean editorMode);
+    public static native void graphicsFrameRuntime(float x,float y,float z,float yaw,float pitch,boolean editorMode);
     public static native float graphicsFrameTimeMs();
     public static native void graphicsShutdown();
     public static native String themeColor(String key);
