@@ -9,7 +9,7 @@ import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.egl.EGLDisplay;
 
 /** Full-screen GPU viewport with editor orbit and runtime mobile look. */
-public final class NoirSurface extends GLSurfaceView {
+public final class NoirSurface extends GLSurfaceView implements NoirViewport {
     public interface EditorTapListener { void onEditorTap(float x,float y); }
     private EditorTapListener editorTapListener;
     public void setEditorTapListener(EditorTapListener listener){editorTapListener=listener;}
