@@ -21,7 +21,7 @@ public final class NoirCSharpProjectService {
 
     public static Result ensure(File projectRoot, String packageName) throws IOException {
         if(projectRoot==null) throw new IOException("No Noir project root");
-        File root=new File(projectRoot,"scripts/csharp");
+        File root=new File(projectRoot,"csharp/Noir.Game");
         File sdk=new File(root,"NoirSdk");
         if(!sdk.mkdirs() && !sdk.isDirectory())
             throw new IOException("Unable to create C# SDK directory");
@@ -88,7 +88,7 @@ public final class NoirCSharpProjectService {
         return """
 # Noir C# Mobile Scripting
 
-This project targets net10.0-android and exposes the engine through using Noir;.
+This project targets net10.0-android36.1 and exposes the engine through using Noir;.
 
 The API covers nodes, transforms, cameras, input, time, rendering materials,
 lights, world environment, physics bodies, ray queries, resources, scene changes,
