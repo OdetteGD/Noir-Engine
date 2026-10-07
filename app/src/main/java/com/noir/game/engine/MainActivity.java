@@ -200,7 +200,7 @@ public final class MainActivity extends Activity {
         };
         int id=0;
         for(float[] q:rocks){
-            NoirNode rock=root.add(new NoirNode("Rock_"+(++id),"Rock_"+id,NoirNode.Kind.MESH3D));
+            NoirNode rock=root.add(new NoirNode("Rock_"+(++id),"Rock_"+id,NoirNode.Kind.ROCK3D));
             rock.properties.put("mesh","environment/rock");
             rock.properties.put("material","RockPBR");
             rock.px=q[0];rock.py=q[1];rock.pz=q[2];rock.sx=q[3];rock.sy=q[4];rock.sz=q[5];
