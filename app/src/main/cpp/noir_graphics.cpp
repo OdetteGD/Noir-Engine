@@ -465,8 +465,6 @@ void Renderer::frame(float yawDeg,float pitchDeg,float distance,float tx,float t
         skyTop={0.09f,0.16f,0.30f};
         skyHorizon={0.34f,0.22f,0.46f};
     }
-    glUniform3f(glGetUniformLocation(impl_->sky,"uTop"),skyTop.x,skyTop.y,skyTop.z);
-    glUniform3f(glGetUniformLocation(impl_->sky,"uHorizon"),std::min(1.0f,skyHorizon.x),std::min(1.0f,skyHorizon.y),std::min(1.0f,skyHorizon.z));
     skyTop=skyTop*impl_->skyBrightness;
     skyHorizon=skyHorizon*impl_->skyBrightness;
     glUniform3f(glGetUniformLocation(impl_->sky,"uTop"),std::min(1.0f,skyTop.x),std::min(1.0f,skyTop.y),std::min(1.0f,skyTop.z));
