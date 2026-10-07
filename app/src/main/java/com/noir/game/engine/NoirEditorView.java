@@ -57,6 +57,10 @@ public final class NoirEditorView extends android.view.View {
     private File browserDir;
     private final ArrayDeque<File> browserHistory=new ArrayDeque<>();
     private String status="Ready";
+    private boolean compactUi;
+    private float tabScroll;
+    private float tabGestureStartX;
+    private float tabGestureStartScroll;
 
     public NoirEditorView(Context c,EditorState s,NoirRenderer r,NoirViewport ss){
         super(c);
@@ -91,9 +95,15 @@ public final class NoirEditorView extends android.view.View {
     @Override protected void onDraw(Canvas c){
         super.onDraw(c);
         float w=getWidth(),h=getHeight();
-        topBar=dp(58);tabBar=dp(48);bottomBar=dp(30);
-        leftW=Math.max(dp(280),Math.min(dp(350),w*0.255f));
-        rightW=Math.max(dp(285),Math.min(dp(360),w*0.26f));
+        compactUi=w<dp(700);
+        topBar=dp(compactUi?52:58);
+        tabBar=dp(compactUi?42:48);
+        bottomBar=dp(compactUi?28:30);
+        if(compactUi){leftW=0;rightW=0;}
+        else{
+            leftW=Math.max(dp(280),Math.min(dp(350),w*0.255f));
+            rightW=Math.max(dp(285),Math.min(dp(360),w*0.26f));
+        }
 
         fill(c,0x00000000,0,0,w,h);
         drawToolbar(c,w);
@@ -139,15 +149,24 @@ public final class NoirEditorView extends android.view.View {
 
     private void drawToolbar(Canvas c,float w){
         fill(c,BG,0,0,w,topBar);
+        if(compactUi){
+            bold(c,"NOIR",dp(12),dp(33),dp(20),Color.WHITE);
+            text(c,"3D",dp(57),dp(31),dp(8),ACCENT);
+            float x=dp(84),bw=dp(50),gap=dp(4);
+            toolButton(c,x,dp(7),bw,dp(38),"SEL",state.tool==EditorState.Tool.SELECT); x+=bw+gap;
+            toolButton(c,x,dp(7),bw,dp(38),"MOVE",state.tool==EditorState.Tool.MOVE); x+=bw+gap;
+            toolButton(c,x,dp(7),bw,dp(38),"ROT",state.tool==EditorState.Tool.ROTATE); x+=bw+gap;
+            toolButton(c,x,dp(7),bw,dp(38),"SCALE",state.tool==EditorState.Tool.SCALE);
+            toolButton(c,w-dp(54),dp(7),dp(46),dp(38),"•••",false);
+            return;
+        }
         bold(c,"NOIR",dp(18),dp(36),dp(24),Color.WHITE);
         text(c,"3D ENGINE",dp(88),dp(27),dp(11),0xffa7b8d8);
         text(c,"MOBILE EDITOR",dp(88),dp(43),dp(9),MUTED);
-
         toolButton(c,dp(220),dp(9),dp(54),dp(40),"SEL",state.tool==EditorState.Tool.SELECT);
         toolButton(c,dp(280),dp(9),dp(64),dp(40),"MOVE",state.tool==EditorState.Tool.MOVE);
         toolButton(c,dp(350),dp(9),dp(64),dp(40),"ROT",state.tool==EditorState.Tool.ROTATE);
         toolButton(c,dp(420),dp(9),dp(70),dp(40),"SCALE",state.tool==EditorState.Tool.SCALE);
-
         toolButton(c,w-dp(340),dp(9),dp(72),dp(40),state.playing?"STOP":"PLAY",state.playing);
         toolButton(c,w-dp(262),dp(9),dp(70),dp(40),"BUILD",false);
         toolButton(c,w-dp(186),dp(9),dp(68),dp(40),"SAVE",false);
@@ -156,18 +175,20 @@ public final class NoirEditorView extends android.view.View {
 
     private void drawTabs(Canvas c,float w){
         fill(c,0xff0d131e,0,topBar,w,topBar+tabBar);
-        float x=dp(7),y=topBar+dp(6);
-        float tw=Math.max(dp(66),Math.min(dp(94),(w-dp(14)-dp(4)*(tabs.length-1))/tabs.length));
-        for(int i=0;i<tabs.length;i++){
-            toolButton(c,x,y,tw,dp(36),tabs[i],i==tab);
-            x+=tw+dp(4);
-        }
+        float y=topBar+dp(compactUi?3:6);
+        float tw=compactUi?dp(70):Math.max(dp(66),Math.min(dp(94),(w-dp(14)-dp(4)*(tabs.length-1))/tabs.length));
+        float step=tw+dp(4);
+        c.save();c.clipRect(0,topBar,w,topBar+tabBar);
+        float x=dp(7)-tabScroll;
+        for(int i=0;i<tabs.length;i++){toolButton(c,x,y,tw,dp(compactUi?34:36),tabs[i],i==tab);x+=step;}
+        c.restore();
+        if(compactUi){text(c,"‹",dp(2),topBar+dp(27),dp(16),MUTED);text(c,"›",w-dp(12),topBar+dp(27),dp(16),MUTED);}
     }
 
     private void drawViewportChrome(Canvas c,float w,float h){
         float ct=topBar+tabBar,cb=h-bottomBar;
-        float vl=tab==0?leftW: (tab==2?0:leftW);
-        float vr=tab==0||tab==2?w-rightW:w;
+        float vl=compactUi?0:(tab==0?leftW:(tab==2?0:leftW));
+        float vr=compactUi?w:((tab==0||tab==2)?w-rightW:w);
         if(vr-vl<dp(200))return;
 
         // Subtle editor grid and viewport frame. The GPU scene remains underneath this overlay.
@@ -198,6 +219,26 @@ public final class NoirEditorView extends android.view.View {
 
     private void drawDock(Canvas c,float w,float h){
         float t=topBar+tabBar,b=h-bottomBar;
+        if(compactUi){
+            if(tab==0) drawScenePanel(c,dp(6),t+dp(4),w-dp(6),b-dp(4));
+            else if(tab==2) drawInspector(c,dp(6),t+dp(4),w-dp(6),b-dp(4));
+            else{
+                drawPanel(c,dp(6),t+dp(4),w-dp(6),b-dp(4),tabs[tab]);
+                switch(tab){
+                    case 1:drawAssets(c,dp(6),t+dp(4),w-dp(6),b-dp(4));break;
+                    case 3:drawAnimation(c,dp(6),t+dp(4),w-dp(6),b-dp(4));break;
+                    case 4:drawScript(c,dp(6),t+dp(4),w-dp(6),b-dp(4));break;
+                    case 5:drawShader(c,dp(6),t+dp(4),w-dp(6),b-dp(4));break;
+                    case 6:drawPhysics(c,dp(6),t+dp(4),w-dp(6),b-dp(4));break;
+                    case 7:drawWorld(c,dp(6),t+dp(4),w-dp(6),b-dp(4));break;
+                    case 8:drawController(c,dp(6),t+dp(4),w-dp(6),b-dp(4));break;
+                    case 9:drawProfiler(c,dp(6),t+dp(4),w-dp(6),b-dp(4));break;
+                    case 10:drawConsole(c,dp(6),t+dp(4),w-dp(6),b-dp(4));break;
+                    case 11:drawCSharp(c,dp(6),t+dp(4),w-dp(6),b-dp(4));break;
+                }
+            }
+            return;
+        }
         if(tab==0){
             drawScenePanel(c,0,t,leftW,b);
             drawInspector(c,w-rightW,t,w,b);
@@ -528,6 +569,7 @@ public final class NoirEditorView extends android.view.View {
 
         if(action==MotionEvent.ACTION_DOWN){
             downX=lastX=x;downY=lastY=y;downTime=System.currentTimeMillis();
+            tabGestureStartX=x;tabGestureStartScroll=tabScroll;tabScrolling=false;
             viewportMoved=false;uiTouch=!isViewport(x,y,w,h);viewportTouch=!uiTouch;
             if(viewportTouch && state.selected!=null && state.tool!=EditorState.Tool.SELECT){
                 gizmo.begin(renderer,state.selected,state.tool,x,y,dp(22));
@@ -546,6 +588,15 @@ public final class NoirEditorView extends android.view.View {
         }
 
         if(action==MotionEvent.ACTION_MOVE){
+            if(compactUi && e.getPointerCount()==1 && y>=topBar && y<topBar+tabBar){
+                float dx=x-tabGestureStartX;
+                if(Math.abs(dx)>dp(6))tabScrolling=true;
+                if(tabScrolling){
+                    float tw=dp(70),maxScroll=Math.max(0,(tw+dp(4))*tabs.length-w+dp(14));
+                    tabScroll=Math.max(0,Math.min(maxScroll,tabGestureStartScroll-dx));
+                    invalidate();return true;
+                }
+            }
             if(e.getPointerCount()>=2 && isViewport(x,y,w,h)){
                 float d=distance(e);
                 float[] center=center(e);
@@ -574,6 +625,7 @@ public final class NoirEditorView extends android.view.View {
 
         if(action==MotionEvent.ACTION_UP){
             long held=System.currentTimeMillis()-downTime;
+            if(compactUi && tabScrolling){invalidate();return true;}
             if(gizmo.dragging()){
                 gizmo.end();status="Transform committed";invalidate();return true;
             }
@@ -599,13 +651,22 @@ public final class NoirEditorView extends android.view.View {
     private boolean isViewport(float x,float y,float w,float h){
         float t=topBar+tabBar,b=h-bottomBar;
         if(y<t||y>b)return false;
-        float left=tab==0||tab==2? (tab==2?0:leftW):leftW;
-        float right=(tab==0||tab==2)?w-rightW:w;
+        float left=compactUi?0:(tab==0||tab==2? (tab==2?0:leftW):leftW);
+        float right=compactUi?w:((tab==0||tab==2)?w-rightW:w);
         return x>left&&x<right;
     }
 
     private void handleUiTap(float x,float y,float w,float h){
         if(y<topBar){
+            if(compactUi){
+                float x0=dp(84),bw=dp(50),gap=dp(4);
+                if(hit(x,y,x0,dp(7),x0+bw,topBar)){state.tool=EditorState.Tool.SELECT;status="Select tool";}
+                else if(hit(x,y,x0+bw+gap,dp(7),x0+2*(bw+gap),topBar)){state.tool=EditorState.Tool.MOVE;status="Move tool";}
+                else if(hit(x,y,x0+2*(bw+gap),dp(7),x0+3*(bw+gap),topBar)){state.tool=EditorState.Tool.ROTATE;status="Rotate tool";}
+                else if(hit(x,y,x0+3*(bw+gap),dp(7),x0+3*(bw+gap)+bw,topBar)){state.tool=EditorState.Tool.SCALE;status="Scale tool";}
+                else if(x>w-dp(58)){showCompactMenu();}
+                invalidate();return;
+            }
             if(hit(x,y,dp(220),dp(9),dp(274),dp(49))){state.tool=EditorState.Tool.SELECT;status="Select tool";}
             else if(hit(x,y,dp(280),dp(9),dp(344),dp(49))){state.tool=EditorState.Tool.MOVE;status="Move tool";}
             else if(hit(x,y,dp(350),dp(9),dp(414),dp(49))){state.tool=EditorState.Tool.ROTATE;status="Rotate tool";}
@@ -617,8 +678,8 @@ public final class NoirEditorView extends android.view.View {
             invalidate();return;
         }
         if(y>=topBar&&y<topBar+tabBar){
-            float tw=Math.max(dp(66),Math.min(dp(94),(w-dp(14)-dp(4)*(tabs.length-1))/tabs.length));
-            int i=(int)((x-dp(7))/(tw+dp(4)));
+            float tw=compactUi?dp(70):Math.max(dp(66),Math.min(dp(94),(w-dp(14)-dp(4)*(tabs.length-1))/tabs.length));
+            int i=(int)((x-dp(7)+tabScroll)/(tw+dp(4)));
             if(i>=0&&i<tabs.length){tab=i;status=tabs[i]+" panel";invalidate();}
             return;
         }
@@ -1009,6 +1070,23 @@ public final class NoirEditorView extends android.view.View {
     }
 
     private void clearConsole(){state.console.clear();state.log("Console cleared");status="Console cleared";invalidate();}
+
+    private void showCompactMenu(){
+        final String[] items={"Play / Stop","Build validation","Save scene","Reset camera","Scene","Inspector","World","Profiler"};
+        new AlertDialog.Builder(getContext()).setTitle("Noir Mobile Tools").setItems(items,(d,which)->{
+            switch(which){
+                case 0:togglePlay();break;
+                case 1:buildProject();break;
+                case 2:saveProject();break;
+                case 3:renderer.resetEditorCamera();status="Editor camera reset";break;
+                case 4:tab=0;break;
+                case 5:tab=2;break;
+                case 6:tab=7;break;
+                case 7:tab=9;break;
+            }
+            invalidate();
+        }).show();
+    }
 
     private void showBindings(){
         new AlertDialog.Builder(getContext()).setTitle("Mobile Controls")
