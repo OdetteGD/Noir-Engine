@@ -9,4 +9,4 @@ public sealed class AnimationPlayer:Node
     public void Seek(float seconds,bool update=true){CurrentTime=MathF.Max(0,seconds);}public bool IsPlaying()=>Playing;
 }
 public sealed class AnimationTree:Node{public bool Active{get;set;}public float TimeScale{get;set;}=1;public string State{get;set;}="";public void Travel(string state){State=state;Active=true;}}
-public sealed class Tween:Node{public bool IsRunning{get;private set;}public void Kill(){IsRunning=false;}public void Start(){IsRunning=true;}}
+public sealed class Tween:Node{public bool IsRunning{get;private set;}public void Kill(){IsRunning=false;}public new void Start(){IsRunning=true;}}
