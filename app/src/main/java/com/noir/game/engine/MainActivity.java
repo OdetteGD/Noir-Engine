@@ -40,6 +40,7 @@ public final class MainActivity extends Activity {
             NoirScene scene=loadProjectScene(projectPath);
             EditorState editor=new EditorState(scene,projectPath);
             renderer=new NoirRenderer();
+            renderer.applyScene(scene);
 
             // NoirGFX C++ is the editor viewport. Java remains the editor interaction
             // layer; Vulkan stays isolated until its full scene pipeline is ready.
