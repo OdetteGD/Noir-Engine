@@ -17,10 +17,12 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - name: Set up Android command line tools
-        uses: android-actions/setup-android@v4.0.4
-        with:
-          packages: 'platform-tools'
+      - name: Verify preinstalled Android SDK
+        run: |
+          set -euo pipefail
+          command -v sdkmanager
+          sdkmanager --version
+
       - name: Install Android SDK packages
         run: |
           yes | sdkmanager --licenses >/dev/null || true
