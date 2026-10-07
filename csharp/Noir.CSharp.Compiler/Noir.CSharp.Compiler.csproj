@@ -7,8 +7,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="../Noir.Mobile.Scripting/Noir.Mobile.Scripting.csproj" />
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />\n    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" />
   </ItemGroup>
 </Project>
