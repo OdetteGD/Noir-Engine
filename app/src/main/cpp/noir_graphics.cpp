@@ -138,6 +138,7 @@ uniform float uRoughness;
 uniform float uMetallic;
 uniform float uExposure;
 uniform float uFog;
+uniform float uQuality;
 out vec4 frag;
 
 float sat(float x){return clamp(x,0.0,1.0);}
@@ -162,6 +163,7 @@ void main(){
     vec3 F=fresnel(f0,VoH);
     float D=distribution(NoH,a),G=visibility(NoV,NoL,rough);
     vec3 spec=(D*G*F)/max(0.001,4.0*NoV*NoL);
+    spec*=mix(0.72,1.0,clamp((uQuality-1.0)/3.0,0.0,1.0));
     vec3 kd=(1.0-F)*(1.0-uMetallic);
     vec3 diffuse=kd*uColor/3.14159265;
     vec3 direct=(diffuse+spec)*uSunColor*NoL;
@@ -266,6 +268,7 @@ struct Renderer::Impl {
     float skyBrightness=1.0f;
     float fogDensity=0.018f;
     Vec3 sunDir{-0.38f,-0.82f,-0.32f};
+    float qualityTier=1.0f;
 
     void destroy(){
         if(vbo)glDeleteBuffers(1,&vbo);
@@ -350,6 +353,7 @@ struct Renderer::Impl {
         glUniform3f(glGetUniformLocation(pbr,"uSkyColor"),sky.x,sky.y,sky.z);
         glUniform1f(glGetUniformLocation(pbr,"uExposure"),environmentExposure);
         glUniform1f(glGetUniformLocation(pbr,"uFog"),fogDensity);
+        glUniform1f(glGetUniformLocation(pbr,"uQuality"),qualityTier);
         glUniform1f(glGetUniformLocation(pbr,"uRoughness"),0.58f);
         glUniform1f(glGetUniformLocation(pbr,"uMetallic"),0.06f);
         for(const SceneInstance& n:scene){
@@ -387,6 +391,7 @@ struct Renderer::Impl {
         glUniform3f(glGetUniformLocation(pbr,"uSkyColor"),skyColor.x,skyColor.y,skyColor.z);
         glUniform1f(glGetUniformLocation(pbr,"uRoughness"),rough);
         glUniform1f(glGetUniformLocation(pbr,"uMetallic"),metal);
+        glUniform1f(glGetUniformLocation(pbr,"uQuality"),qualityTier);
         glUniform1f(glGetUniformLocation(pbr,"uExposure"),1.08f);
         glUniform1f(glGetUniformLocation(pbr,"uFog"),0.018f);
         // The geometry is already in world space. uModel remains identity.
@@ -437,6 +442,9 @@ void Renderer::setScene(const float* snapshot,int floatCount){
 void Renderer::setEnvironment(int skyMode,float exposure,float skyBrightness,float fogDensity,
                               float sunX,float sunY,float sunZ){
     impl_->setEnvironment(skyMode,exposure,skyBrightness,fogDensity,{sunX,sunY,sunZ});
+}
+void Renderer::setQuality(int qualityTier){
+    impl_->qualityTier=std::max(1.0f,std::min(4.0f,float(qualityTier)));
 }
 void Renderer::frame(float yawDeg,float pitchDeg,float distance,float tx,float ty,float tz,bool editorMode){
     if(!impl_->ready)return;
@@ -526,6 +534,12 @@ extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_graphicsS
     std::vector<jfloat> data(static_cast<size_t>(len));
     env->GetFloatArrayRegion(snapshot,0,len,data.data());
     gRenderer->setScene(data.data(),static_cast<int>(len));
+}
+
+extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_graphicsSetQuality
+  (JNIEnv*,jclass,jint qualityTier){
+    if(!gRenderer)return;
+    gRenderer->setQuality(static_cast<int>(qualityTier));
 }
 
 extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_graphicsSetEnvironment
