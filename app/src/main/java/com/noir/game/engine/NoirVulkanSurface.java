@@ -8,6 +8,7 @@ import android.view.SurfaceView;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.Toast;
+import com.noir.game.engine.render.NoirRenderer;
 
 /** Native Vulkan presentation surface. Backend is selected before Activity creation. */
 public final class NoirVulkanSurface extends SurfaceView implements SurfaceHolder.Callback, NoirViewport {
