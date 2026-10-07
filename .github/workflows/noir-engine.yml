@@ -33,9 +33,39 @@ jobs:
       - name: Install Android SDK packages
         run: |
           yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;28.1.13356709"
+          sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "cmake;3.22.1" "ndk;28.1.13356709"
       - uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: "8.10.2"
+      - name: Validate Android toolchain
+        run: |
+          set -euo pipefail
+          echo "Java:"
+          java -version
+          echo "Gradle:"
+          gradle --version
+          echo "Android SDK: $ANDROID_SDK_ROOT"
+          sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --list_installed | grep -E "platforms;android-35|build-tools;35.0.0|cmake;3.22.1|ndk;28.1.13356709" || true
+          test -d "$ANDROID_SDK_ROOT/platforms/android-35"
+          test -d "$ANDROID_SDK_ROOT/build-tools/35.0.0"
+          test -d "$ANDROID_SDK_ROOT/cmake/3.22.1"
+          test -d "$ANDROID_SDK_ROOT/ndk/28.1.13356709"
+
       - name: Build debug engine app
-        run: gradle --no-daemon --stacktrace :app:assembleDebug
+        run: |
+          set -euo pipefail
+          gradle --no-daemon --stacktrace --warning-mode all :app:assembleDebug
+
+      - name: Verify debug APK
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          echo "APK size: $(du -h "$APK" | cut -f1)"
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: noir-engine-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
