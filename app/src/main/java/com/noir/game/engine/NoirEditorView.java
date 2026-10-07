@@ -81,6 +81,7 @@ public final class NoirEditorView extends android.view.View {
         density=getResources().getDisplayMetrics().density;
         setFocusable(true);
         setWillNotDraw(false);
+        setBackgroundColor(Color.TRANSPARENT);
         browserDir=state.projectRoot;
         state.log("Noir mobile editor ready");
     }
@@ -137,7 +138,7 @@ public final class NoirEditorView extends android.view.View {
             }
         }
 
-        fill(c,BG,0,0,w,h);
+        // Transparent editor overlay: the native 3D surface remains visible in the viewport.
         drawToolbar(c,w);
         drawTabs(c,w);
 
@@ -155,7 +156,7 @@ public final class NoirEditorView extends android.view.View {
 
         if(!state.playing){
             drawViewportChrome(c,w,h);
-            drawGizmo(c);
+            if(gizmoVisibleForSelection()) drawGizmo(c);
             drawDock(c,w,h);
         }
         drawStatusBar(c,w,h);
@@ -229,10 +230,6 @@ public final class NoirEditorView extends android.view.View {
             for(float x=vl+dp(40);x<vr;x+=dp(40))c.drawLine(x,ct,x,cb,p);
             for(float y=ct+dp(40);y<cb;y+=dp(40))c.drawLine(vl,y,vr,y,p);
         }
-        float ox=(vl+vr)*0.5f, oy=(ct+cb)*0.5f;
-        p.setStrokeWidth(dp(1.5f));p.setColor(0x706C7888);c.drawLine(ox,oy,ox+dp(58),oy,p);
-        p.setColor(0x706D8297);c.drawLine(ox,oy,ox,oy-dp(44),p);
-        p.setColor(0x705C79A6);c.drawLine(ox,oy,ox-dp(42),oy+dp(32),p);
         p.setStrokeWidth(1);p.setColor(0x503c4d69);c.drawRect(vl,ct,vr,cb,p);
         p.setStyle(Paint.Style.FILL);
 
@@ -548,6 +545,21 @@ public final class NoirEditorView extends android.view.View {
         }
         smallButton(c,l+dp(16),b-dp(52),dp(64),"CLEAR",false);
         smallButton(c,l+dp(88),b-dp(52),dp(76),"COPY",false);
+    }
+
+    private boolean gizmoVisibleForSelection(){
+        if(state.playing||state.selected==null||state.tool==EditorState.Tool.SELECT)return false;
+        switch(state.selected.kind){
+            case WORLD_ENVIRONMENT:
+            case SKY3D:
+            case FOG_VOLUME3D:
+            case POST_PROCESS3D:
+            case CAMERA3D:
+            case LIGHT3D:
+                return false;
+            default:
+                return true;
+        }
     }
 
     private void drawGizmo(Canvas c){
@@ -962,13 +974,26 @@ public final class NoirEditorView extends android.view.View {
         NoirNode best=null;float bestD=Float.MAX_VALUE;
         for(NoirNode n:tree.visible()){
             if(n==state.scene.root||!n.visible||n.locked)continue;
-            float[] q=renderer.projectWorldToScreen(n.px,n.py,n.pz);
+            float[] wp=worldPosition(n);
+            float[] q=renderer.projectWorldToScreen(wp[0],wp[1],wp[2]);
             if(q==null)continue;
             float d=(float)Math.hypot(q[0]-x,q[1]-y);
             if(d<bestD&&d<dp(54)){best=n;bestD=d;}
         }
         if(best!=null){state.select(best);status="Selected "+best.name;}
         else status="No scene node under pointer";
+    }
+
+    private float[] worldPosition(NoirNode n){
+        float x=0,y=0,z=0;
+        ArrayDeque<NoirNode> chain=new ArrayDeque<>();
+        NoirNode cur=n;
+        while(cur!=null&&cur.parent!=null){chain.push(cur);cur=cur.parent;}
+        while(!chain.isEmpty()){
+            NoirNode p=chain.pop();
+            x+=p.px;y+=p.py;z+=p.pz;
+        }
+        return new float[]{x,y,z};
     }
 
     private void showNoirContextMenu(float x,float y){

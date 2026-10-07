@@ -17,6 +17,11 @@ public final class NoirVulkanSurface extends SurfaceView implements SurfaceHolde
     private boolean attached;
     private boolean running;
     private int uploadedSceneVersion=-1;
+    private int consecutiveFrameFailures;
+    private int consecutiveSuccessfulFrames;
+    private float lastX,lastY,startX,startY;
+    private boolean dragging,runtimeMoveTouch;
+    private float pinchDistance,lastCenterX,lastCenterY;
     private final Runnable frameLoop = new Runnable() {
         @Override public void run() {
             if (!running || !attached) return;
@@ -32,8 +37,27 @@ public final class NoirVulkanSurface extends SurfaceView implements SurfaceHolde
                         renderer.environmentSkyBrightness(),renderer.environmentFogDensity(),
                         sun[0],sun[1],sun[2]);
                 NoirNative.vulkanSetQuality(renderer.nativeQualityTier());
-                NoirNative.vulkanDrawFrame();
-            } catch (Throwable ignored) {}
+                boolean ok=NoirNative.vulkanDrawFrame();
+                if(!ok && ++consecutiveFrameFailures>=3){
+                    running=false;attached=false;
+                    try { NoirNative.vulkanDetachSurface(); } catch(Throwable ignored) {}
+                    NoirGraphicsBackend.save(getContext(),NoirGraphicsBackend.Type.GLES);
+                    android.app.Activity a=(android.app.Activity)getContext();
+                    a.runOnUiThread(a::recreate);
+                    return;
+                }
+                if(ok){consecutiveFrameFailures=0;
+                    if(++consecutiveSuccessfulFrames>=120)NoirGraphicsBackend.confirmVulkan(getContext());
+                }
+            } catch (Throwable ignored) {
+                if(++consecutiveFrameFailures>=3){
+                    running=false;attached=false;
+                    try { NoirNative.vulkanDetachSurface(); } catch(Throwable ignored2) {}
+                    NoirGraphicsBackend.save(getContext(),NoirGraphicsBackend.Type.GLES);
+                    ((android.app.Activity)getContext()).runOnUiThread(() -> ((android.app.Activity)getContext()).recreate());
+                    return;
+                }
+            }
             handler.postDelayed(this, 16L);
         }
     };
@@ -51,7 +75,7 @@ public final class NoirVulkanSurface extends SurfaceView implements SurfaceHolde
             boolean ok = NoirNative.vulkanAttachSurface(holder.getSurface(), getContext().getAssets());
             attached = ok;
             running = ok;
-            if (ok) { uploadedSceneVersion=-1; handler.post(frameLoop); }
+            if (ok) { uploadedSceneVersion=-1; consecutiveFrameFailures=0; consecutiveSuccessfulFrames=0; handler.post(frameLoop); }
             else Toast.makeText(getContext(),"Vulkan surface failed; restart with GLES.",Toast.LENGTH_LONG).show();
         } catch (Throwable ignored) {
             attached=false; running=false;
@@ -66,7 +90,48 @@ public final class NoirVulkanSurface extends SurfaceView implements SurfaceHolde
         try { NoirNative.vulkanDetachSurface(); } catch (Throwable ignored) {}
     }
 
-    @Override public void setRuntimeMode(boolean runtime) {}
+    @Override public void setRuntimeMode(boolean runtime) {
+        renderer.setMode(runtime ? NoirRenderer.Mode.RUNTIME : NoirRenderer.Mode.EDITOR);
+    }
 
-    @Override public boolean onTouchEvent(MotionEvent event) { return true; }
+    @Override public boolean onTouchEvent(MotionEvent e) {
+        int count=e.getPointerCount();
+        if(count>=2){
+            float dx=e.getX(0)-e.getX(1),dy=e.getY(0)-e.getY(1);
+            float d=(float)Math.hypot(dx,dy);
+            float cx=(e.getX(0)+e.getX(1))*0.5f,cy=(e.getY(0)+e.getY(1))*0.5f;
+            if(e.getActionMasked()==MotionEvent.ACTION_POINTER_DOWN){pinchDistance=d;lastCenterX=cx;lastCenterY=cy;}
+            else if(e.getActionMasked()==MotionEvent.ACTION_MOVE&&pinchDistance>1){
+                if(renderer.mode()==NoirRenderer.Mode.EDITOR){
+                    renderer.zoom((pinchDistance-d)*0.015f);
+                    renderer.pan(cx-lastCenterX,cy-lastCenterY);
+                }
+                pinchDistance=d;lastCenterX=cx;lastCenterY=cy;
+            }
+            return true;
+        }
+        switch(e.getActionMasked()){
+            case MotionEvent.ACTION_DOWN:
+                lastX=e.getX();lastY=e.getY();startX=lastX;startY=lastY;
+                runtimeMoveTouch=renderer.mode()==NoirRenderer.Mode.RUNTIME&&e.getX()<getWidth()*0.42f;
+                dragging=true;return true;
+            case MotionEvent.ACTION_MOVE:
+                if(!dragging)return true;
+                float dx=e.getX()-lastX,dy=e.getY()-lastY;
+                if(renderer.mode()==NoirRenderer.Mode.RUNTIME){
+                    if(runtimeMoveTouch){
+                        float sx=Math.max(-1f,Math.min(1f,(e.getX()-startX)/220f));
+                        float sy=Math.max(-1f,Math.min(1f,(startY-e.getY())/220f));
+                        renderer.runtimeMove(sy,sx,0.016f);
+                    }else renderer.runtimeLook(dx,dy);
+                }else{
+                    renderer.orbit(dx,dy);
+                }
+                lastX=e.getX();lastY=e.getY();return true;
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+                dragging=false;runtimeMoveTouch=false;pinchDistance=0;return true;
+            default:return true;
+        }
+    }
 }

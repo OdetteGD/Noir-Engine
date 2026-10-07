@@ -10,6 +10,7 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include "noir_world_scene.h"
 
 #define NOIR_VK_LOG(...) __android_log_print(ANDROID_LOG_INFO,"NoirVulkan",__VA_ARGS__)
 
@@ -222,6 +223,27 @@ static void addCone(std::vector<Vertex>&o,const Instance&n,Vec3 col){
     float rx=n.rx*0.0174532925f,ry=n.ry*0.0174532925f,rz=n.rz*0.0174532925f;const int sides=12;
     for(int i=0;i<sides;i++){float a0=6.2831853f*i/sides,a1=6.2831853f*(i+1)/sides;Vec3 a{std::cos(a0)*n.sx,0,std::sin(a0)*n.sz},b{std::cos(a1)*n.sx,0,std::sin(a1)*n.sz},c{0,2.0f*n.sy,0};Vec3 nn=normalize(rotate({std::cos((a0+a1)*0.5f),0.7f,std::sin((a0+a1)*0.5f)},rx,ry,rz));a=rotate(a,rx,ry,rz)+Vec3{n.x,n.y,n.z};b=rotate(b,rx,ry,rz)+Vec3{n.x,n.y,n.z};c=rotate(c,rx,ry,rz)+Vec3{n.x,n.y,n.z};pushTri(o,a,b,c,nn,col,0.82f);}
 }
+static float terrainHeight(float x,float z){
+    return 0.22f*std::sin(x*0.38f)+0.18f*std::cos(z*0.31f)
+         +0.12f*std::sin((x+z)*0.67f)+0.07f*std::cos((x-z)*1.17f);
+}
+static void addTerrain(std::vector<Vertex>&o,const Instance&n,Vec3 col){
+    const int cells=14;const float size=1.0f;const float step=(size*2.0f)/cells;
+    float rx=n.rx*0.0174532925f,ry=n.ry*0.0174532925f,rz=n.rz*0.0174532925f;
+    for(int z=0;z<cells;z++)for(int x=0;x<cells;x++){
+        float x0=-size+x*step,x1=x0+step,z0=-size+z*step,z1=z0+step;
+        auto point=[&](float px,float pz){Vec3 p{px,terrainHeight(px,pz),pz};p={p.x*n.sx,p.y*n.sy,p.z*n.sz};return rotate(p,rx,ry,rz)+Vec3{n.x,n.y,n.z};};
+        Vec3 a=point(x0,z0),b=point(x1,z0),cc=point(x1,z1),d=point(x0,z1);
+        Vec3 n0=normalize(cross(b-a,cc-a)),n1=normalize(cross(cc-a,d-a));
+        pushTri(o,a,b,cc,n0,col,0.9f);pushTri(o,a,cc,d,n1,col,0.9f);
+    }
+}
+static void addWater(std::vector<Vertex>&o,const Instance&n,Vec3 col){
+    Vec3 a{-n.sx,0,-n.sz},b{n.sx,0,-n.sz},cc{n.sx,0,n.sz},d{-n.sx,0,n.sz};
+    a=a+Vec3{n.x,n.y,n.z};b=b+Vec3{n.x,n.y,n.z};cc=cc+Vec3{n.x,n.y,n.z};d=d+Vec3{n.x,n.y,n.z};
+    Vec3 normal{0,1,0};pushTri(o,a,b,cc,normal,col,0.18f);pushTri(o,a,cc,d,normal,col,0.18f);
+}
+
 static void addRock(std::vector<Vertex>&o,const Instance&n,Vec3 col){
     Instance s=n;s.sx*=1.2f;s.sy*=0.8f;s.sz*=1.0f;
     const Vec3 v[6]={{0,1,0},{0,-1,0},{-1,0,0},{1,0,0},{0,0,-1},{0,0,1}};const int t[8][3]={{0,2,4},{0,4,3},{0,3,5},{0,5,2},{1,4,2},{1,3,4},{1,5,3},{1,2,5}};
@@ -233,7 +255,11 @@ static void rebuildVertices(){
     for(const Instance&n:g.scene){
         if(n.kind==17&&((foliage++)%stride)!=0)continue;
         Vec3 col=colorKind(n.kind);float rough=n.kind==15?0.18f:(n.kind==17?0.82f:0.65f);
-        if(n.kind==17)addCone(out,n,col);else if(n.kind==5)addRock(out,n,col);else addCube(out,n,col,rough);
+        if(n.kind==17)addCone(out,n,col);
+        else if(n.kind==16)addTerrain(out,n,col);
+        else if(n.kind==15)addWater(out,n,col);
+        else if(n.kind==5)addRock(out,n,col);
+        else addCube(out,n,col,rough);
     }
     if(out.empty())return;
     size_t bytes=out.size()*sizeof(Vertex);
@@ -280,8 +306,31 @@ extern "C" JNIEXPORT jboolean JNICALL Java_com_noir_game_engine_NoirNative_vulka
 }
 extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanResize(JNIEnv*,jclass,jint w,jint h){if(!g.initialized)return;(void)w;(void)h;}
 extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanSetScene(JNIEnv*env,jclass,jfloatArray arr){
-    if(!g.initialized||!arr)return;jsize len=env->GetArrayLength(arr);if(len<10){g.scene.clear();rebuildVertices();return;}std::vector<jfloat>d((size_t)len);env->GetFloatArrayRegion(arr,0,len,d.data());g.scene.clear();int n=std::min<int>(len/10,256);g.scene.reserve(n);for(int i=0;i<n;i++){const float*p=d.data()+i*10;Instance x{p[0],p[1],p[2],p[3],p[4],p[5],p[6],p[7],p[8],(int)std::lround(p[9])};g.scene.push_back(x);}rebuildVertices();
+    if(!g.initialized)return;
+    g.scene.clear();
+    if(arr){
+        jsize len=env->GetArrayLength(arr);
+        if(len>=10){
+            std::vector<jfloat>d(static_cast<size_t>(len));
+            env->GetFloatArrayRegion(arr,0,len,d.data());
+            int n=std::min<int>(len/10,256);
+            g.scene.reserve(n);
+            for(int i=0;i<n;i++){
+                const float*p=d.data()+i*10;
+                g.scene.push_back({p[0],p[1],p[2],p[3],p[4],p[5],p[6],p[7],p[8],(int)std::lround(p[9])});
+            }
+        }
+    }
+    if(g.scene.empty()){
+        std::vector<noir::world::Instance> fallback;
+        noir::world::buildDefaultWorld(fallback);
+        g.scene.reserve(fallback.size());
+        for(const auto&w:fallback)
+            g.scene.push_back({w.x,w.y,w.z,w.sx,w.sy,w.sz,w.rx,w.ry,w.rz,w.kind});
+    }
+    rebuildVertices();
 }
+
 extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanSetCamera(JNIEnv*,jclass,jfloat yaw,jfloat pitch,jfloat distance,jfloat tx,jfloat ty,jfloat tz){g.yaw=yaw;g.pitch=pitch;g.distance=distance;g.targetX=tx;g.targetY=ty;g.targetZ=tz;}
 extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanSetEnvironment(JNIEnv*,jclass,jint mode,jfloat exposure,jfloat brightness,jfloat fog,jfloat sx,jfloat sy,jfloat sz){g.skyMode=mode;g.exposure=std::max(0.05f,float(exposure));g.brightness=std::max(0.0f,float(brightness));g.fog=std::max(0.0f,float(fog));g.sun=normalize({sx,sy,sz});}
 extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanSetQuality(JNIEnv*,jclass,jint tier){g.quality=std::max(1.0f,std::min(4.0f,float(tier)));}

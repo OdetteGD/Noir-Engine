@@ -23,6 +23,7 @@ public final class MainActivity extends Activity {
 
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
+        NoirCrashReporter.install(this);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
@@ -49,6 +50,7 @@ public final class MainActivity extends Activity {
             boolean useVulkan=preferred==NoirGraphicsBackend.Type.VULKAN && NoirGraphicsBackend.vulkanAvailable();
             renderer.setGraphicsBackend(useVulkan?NoirRenderer.GraphicsBackend.VULKAN:NoirRenderer.GraphicsBackend.GLES);
             if(useVulkan){
+                NoirGraphicsBackend.markVulkanStarted(this);
                 surface=new NoirVulkanSurface(this,renderer);
             }else{
                 surface=new NoirSurface(this,renderer);
@@ -82,7 +84,7 @@ public final class MainActivity extends Activity {
                 +"Project: "+projectName+"\n"
                 +"The project could not initialize the editor.\n"
                 +"A safe fallback scene was prepared, but the current graphics surface failed.\n\n"
-                +"Open the project again after checking the editor logs.");
+                +"A crash report may be available at Android/data/com.noir.game.engine/files/noir-crash/last_crash.txt.");
         view.setBackgroundColor(NoirTheme.color("surface",Color.rgb(255,253,248)));
         setContentView(view);
     }
@@ -169,16 +171,16 @@ public final class MainActivity extends Activity {
     }
 
     private void ensureWorldGeometry(NoirScene scene, NoirNode root){
-        boolean hasGeometry=false;
+        boolean hasWorldGeometry=false;
         for(NoirNode n:scene.flatten()){
             switch(n.kind){
-                case MESH3D: case TERRAIN3D: case FOLIAGE3D: case WATER3D: case STATIC_BODY3D:
-                case CHARACTER3D: case PLAYER3D: case VEHICLE3D: hasGeometry=true; break;
+                case MESH3D: case TERRAIN3D: case FOLIAGE3D: case WATER3D:
+                case STATIC_BODY3D: case RIGID_BODY3D: hasWorldGeometry=true; break;
                 default: break;
             }
-            if(hasGeometry)break;
+            if(hasWorldGeometry)break;
         }
-        if(hasGeometry)return;
+        if(hasWorldGeometry)return;
 
         NoirNode terrain=root.add(new NoirNode("Terrain_Main","Terrain_Main",NoirNode.Kind.TERRAIN3D));
         terrain.properties.put("mesh","builtin/terrain");
