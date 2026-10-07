@@ -36,6 +36,29 @@ public final class NoirProjectWorkspace {
                 " type = CAMERA3D\n" +
                 " position = (0, 2, 6)\n" +
                 "}\n");
+        write(new File(project, "csharp/Noir.Game/Noir.Game.csproj"),
+                "<Project Sdk=\"Microsoft.NET.Sdk\">\n" +
+                "  <PropertyGroup>\n" +
+                "    <TargetFramework>net10.0-android36.1</TargetFramework>\n" +
+                "    <Nullable>enable</Nullable>\n" +
+                "    <ImplicitUsings>enable</ImplicitUsings>\n" +
+                "    <LangVersion>14.0</LangVersion>\n" +
+                "  </PropertyGroup>\n" +
+                "  <ItemGroup>\n" +
+                "    <Compile Include=\"PlayerController.cs\" />\n" +
+                "  </ItemGroup>\n" +
+                "</Project>\n");
+        write(new File(project, "csharp/Noir.Game/PlayerController.cs"),
+                "using Noir;\n\n" +
+                "public sealed class PlayerController : Character3D {\n" +
+                "    [Export] public float Speed { get; set; } = 5f;\n" +
+                "    public override void _PhysicsProcess(float delta) {\n" +
+                "        MoveAndSlide();\n" +
+                "    }\n" +
+                "}\n");
+        write(new File(project, "csharp/README.md"),
+                "# Noir C# Project\n\n" +
+                "C# scripts live in `csharp/Noir.Game/`. The engine C# SDK is shipped with the Noir Engine source/SDK package.\n");
         write(new File(project, "scripts/player.game"),
                 "entity PlayerController {\n" +
                 " type: Character3D\n" +
@@ -80,6 +103,8 @@ public final class NoirProjectWorkspace {
     private void createTree(File p) {
         new File(p, "scenes").mkdirs();
         new File(p, "scripts").mkdirs();
+        new File(p, "csharp").mkdirs();
+        new File(p, "csharp/Noir.Game").mkdirs();
         new File(p, "assets").mkdirs();
         new File(p, "materials").mkdirs();
         new File(p, "textures").mkdirs();
