@@ -19,4 +19,7 @@ public final class NoirNative {
     public static native int countAabbPairs(float[] boxes);
     public static native float smoothDamp(float current,float target,float currentVelocity,float smoothTime,float maxSpeed,float dt);
     public static native String mobilePbrShader();
+    public static native boolean vulkanSupported();
+    public static native String vulkanStatus();
+    public static native String glesBackendInfo();
 }
