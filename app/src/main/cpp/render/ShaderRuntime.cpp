@@ -16,10 +16,8 @@ bool CompileGLESShader(const ShaderAsset& asset, unsigned int glShaderHandle) no
     return ok == GL_TRUE;
 }
 
-bool CreateVulkanShaderModule(const ShaderAsset& asset, void* vkDevice, void* outModule) noexcept {
-    if(!asset.HasSPIRV() || vkDevice == nullptr || outModule == nullptr) return false;
-    auto device = reinterpret_cast<VkDevice>(vkDevice);
-    auto moduleOut = reinterpret_cast<VkShaderModule*>(outModule);
+bool CreateVulkanShaderModule(const ShaderAsset& asset, VkDevice device, VkShaderModule* moduleOut) noexcept {
+    if(!asset.HasSPIRV() || device == VK_NULL_HANDLE || moduleOut == nullptr) return false;
     VkShaderModuleCreateInfo ci{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
     ci.codeSize = asset.spirv().size() * sizeof(std::uint32_t);
     ci.pCode = asset.spirv().data();
