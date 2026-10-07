@@ -32,9 +32,21 @@ jobs:
           java-version: "17"
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v4
-        with:
-          packages: "platform-tools platforms;android-35 build-tools;35.0.0 ndk;28.1.13356709"
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          test -n "$SDKMANAGER"
+          test -x "$SDKMANAGER"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "$SDK_ROOT" >> "$GITHUB_PATH"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+          "$SDKMANAGER" --version
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;28.1.13356709"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
@@ -99,10 +111,26 @@ jobs:
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
 
+      - name: Package C# SDK and release source bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.version }}"
+          mkdir -p release-bundle
+          cp "app/build/outputs/apk/release/app-release.apk" "release-bundle/Noir-3D-Game-Engine-v${VERSION}.apk"
+          zip -qr "release-bundle/Noir-CSharp-Mobile-SDK-v${VERSION}.zip" csharp docs README.md
+          zip -qr "release-bundle/Noir-Engine-Source-v${VERSION}.zip" app engine csharp docs README.md settings.gradle build.gradle gradle.properties global.json
+          sha256sum release-bundle/* > "release-bundle/SHA256SUMS.txt"
+          ls -lh release-bundle
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: "v${{ steps.version.outputs.version }}"
           name: "Noir 3D Game Engine v${{ steps.version.outputs.version }}"
           generate_release_notes: true
-          files: app/build/outputs/apk/release/app-release.apk
+          files: |
+            release-bundle/Noir-3D-Game-Engine-v${{ steps.version.outputs.version }}.apk
+            release-bundle/Noir-CSharp-Mobile-SDK-v${{ steps.version.outputs.version }}.zip
+            release-bundle/Noir-Engine-Source-v${{ steps.version.outputs.version }}.zip
+            release-bundle/SHA256SUMS.txt
