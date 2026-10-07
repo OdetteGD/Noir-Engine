@@ -77,7 +77,7 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
     private int shadowFbo, shadowTexture;
     private int uModel,uViewProj,uNormal,uCamera,uSunDir,uSunColor,uSky,uBaseColor,uRough,uMetal,uShadow,uLightVP,uExposure,uReflections,uFog,uTone,uContrast,uSaturation,uGodRays,uBloom,uPcfRadius;
     private int sModel,sLightVP;
-    private int skyTime, skyForward, skyRight, skyUp, skyAspect, skyClouds, skySunRays, skyGodRays;
+    private int skyTime, skyForward, skyRight, skyUp, skyAspect, skyClouds, skySunRays, skyGodRays, skySunDir, skyHorizon, skyZenith, skyBrightness, skyCloudCoverage;
     private long lastNanos;
     private float frameTimeMs;
 
@@ -146,6 +146,11 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
         skyClouds=GLES30.glGetUniformLocation(skyProgram,"uClouds");
         skySunRays=GLES30.glGetUniformLocation(skyProgram,"uSunRays");
         skyGodRays=GLES30.glGetUniformLocation(skyProgram,"uGodRays");
+        skySunDir=GLES30.glGetUniformLocation(skyProgram,"uSunDir");
+        skyHorizon=GLES30.glGetUniformLocation(skyProgram,"uHorizon");
+        skyZenith=GLES30.glGetUniformLocation(skyProgram,"uZenith");
+        skyBrightness=GLES30.glGetUniformLocation(skyProgram,"uSkyBrightness");
+        skyCloudCoverage=GLES30.glGetUniformLocation(skyProgram,"uCloudCoverage");
 
         createMeshes();
         createShadowMap();
@@ -410,9 +415,15 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
         GLES30.glUniform3f(skyRight,right[0],right[1],right[2]);
         GLES30.glUniform3f(skyUp,up[0],up[1],up[2]);
         GLES30.glUniform1f(skyAspect,(float)width/Math.max(1,height));
-        GLES30.glUniform1f(skyClouds,quality.clouds&&environment.cloudsEnabled?environment.cloudCoverage*environment.cloudDensity:0f);
+        float[] sun=environment.sunDirection();
+        GLES30.glUniform3f(skySunDir,sun[0],sun[1],sun[2]);
+        GLES30.glUniform3f(skyHorizon,environment.horizon[0],environment.horizon[1],environment.horizon[2]);
+        GLES30.glUniform3f(skyZenith,environment.zenith[0],environment.zenith[1],environment.zenith[2]);
+        GLES30.glUniform1f(skyBrightness,environment.skyBrightness);
+        GLES30.glUniform1f(skyCloudCoverage,environment.cloudCoverage);
+        GLES30.glUniform1f(skyClouds,quality.clouds&&environment.cloudsEnabled?environment.cloudDensity:0f);
         GLES30.glUniform1f(skySunRays,quality.sunRays&&environment.sunRays?1f:0f);
-        GLES30.glUniform1f(skyGodRays,quality.godRays?1f:0f);
+        GLES30.glUniform1f(skyGodRays,quality.godRays&&environment.volumetricEnabled?1f:0f);
         GLES30.glDrawArrays(GLES30.GL_TRIANGLES,0,3);
         GLES30.glEnable(GLES30.GL_CULL_FACE);
         GLES30.glDepthMask(true);
@@ -586,7 +597,7 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
     private String shadowVertex(){return "#version 300 es\nlayout(location=0)in vec3 aPos;uniform mat4 uModel,uLightVP;void main(){gl_Position=uLightVP*uModel*vec4(aPos,1.0);}";}
     private String shadowFragment(){return "#version 300 es\nprecision mediump float;void main(){}";}
     private String skyVertex(){return "#version 300 es\nout vec2 vSkyUV;void main(){vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));vSkyUV=p;gl_Position=vec4(p*2.0-1.0,0.999,1.0);}";}
-    private String skyFragment(){return "#version 300 es\\nprecision highp float;in vec2 vSkyUV;uniform float uTime,uAspect,uSunRays,uGodRays,uClouds;uniform vec3 uForward,uRight,uUp;out vec4 frag;float hash(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}float noise(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(mix(hash(i),hash(i+vec3(1,0,0)),f.x),mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);}void main(){vec2 ndc=vSkyUV*2.0-1.0;vec3 ray=normalize(uForward+uRight*ndc.x*uAspect+uUp*ndc.y);float h=clamp(ray.y*0.5+0.5,0.0,1.0);vec3 horizon=vec3(0.72,0.86,1.00),zenith=vec3(0.12,0.28,0.52);vec3 c=mix(horizon,zenith,pow(h,0.75));float cloudBand=smoothstep(0.02,0.18,ray.y)*smoothstep(0.72,0.30,ray.y);vec3 q=ray*3.2+vec3(uTime*0.006,0.0,uTime*0.004);float n=noise(q)*0.62+noise(q*2.1)*0.25+noise(q*4.0)*0.13;float clouds=smoothstep(0.57,0.74,n)*cloudBand*uClouds;c=mix(c,vec3(0.97,0.985,1.0),clouds*0.58);vec3 sunDir=normalize(vec3(-0.42,-0.82,-0.34));float sunDot=max(dot(ray,-sunDir),0.0);float disc=pow(sunDot,720.0);float halo=pow(sunDot,28.0)*0.16+pow(sunDot,6.0)*0.025;float shaft=pow(max(sunDot,0.0),5.0)*smoothstep(-0.10,0.28,ray.y)*0.10;float angular=pow(max(dot(normalize(vec3(ray.x,0.0,ray.z)),normalize(vec3((-sunDir).x,0.0,(-sunDir).z))),0.0),18.0);c+=vec3(1.0,0.72,0.40)*(disc*uSunRays+halo*uSunRays+shaft*uGodRays*angular);frag=vec4(c,1.0);}";}
+    private String skyFragment(){return "#version 300 es\\nprecision highp float;in vec2 vSkyUV;uniform float uTime,uAspect,uSunRays,uGodRays,uClouds,uSkyBrightness,uCloudCoverage;uniform vec3 uForward,uRight,uUp,uSunDir,uHorizon,uZenith;out vec4 frag;float hash(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}float noise(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(mix(hash(i),hash(i+vec3(1,0,0)),f.x),mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);}float fbm(vec3 p){float v=0.0,a=0.55;for(int i=0;i<4;i++){v+=noise(p)*a;p=p*2.03+7.1;a*=0.5;}return v;}void main(){vec2 ndc=vSkyUV*2.0-1.0;vec3 ray=normalize(uForward+uRight*ndc.x*uAspect+uUp*ndc.y);float h=clamp(ray.y*0.5+0.5,0.0,1.0);float horizonFade=smoothstep(-0.08,0.42,ray.y);vec3 c=mix(uHorizon,uZenith,pow(horizonFade,0.72));float warm=smoothstep(0.15,0.0,abs(ray.y))*0.10;c+=vec3(0.12,0.055,0.018)*warm;vec3 q=ray*4.2+vec3(uTime*0.006,0.0,uTime*0.004);float n=fbm(q);float cloudBand=smoothstep(0.02,0.12,ray.y)*smoothstep(0.76,0.30,ray.y);float cloudShape=smoothstep(0.50,0.72,n)*cloudBand*uCloudCoverage*uClouds;c=mix(c,vec3(0.94,0.96,0.98),cloudShape*0.62);vec3 toSun=normalize(-uSunDir);float sunDot=max(dot(ray,toSun),0.0);float disc=pow(sunDot,900.0);float halo=pow(sunDot,34.0)*0.24+pow(sunDot,7.0)*0.035;float shaft=pow(sunDot,4.0)*smoothstep(-0.18,0.35,ray.y)*0.08;c+=vec3(1.0,0.76,0.46)*(disc*uSunRays+halo*uSunRays+shaft*uGodRays);c*=max(0.0,uSkyBrightness);c=vec3(1.0)-exp(-c);frag=vec4(pow(clamp(c,0.0,1.0),vec3(0.4545)),1.0);}}
     public float[] projectWorldToScreen(float x,float y,float z){
         float[] vp=viewProj();
         float cx=vp[0]*x+vp[4]*y+vp[8]*z+vp[12];
