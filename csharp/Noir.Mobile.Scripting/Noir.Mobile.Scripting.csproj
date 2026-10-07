@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>net10.0;net10.0-android35.0</TargetFrameworks>
+    <TargetFrameworks>net10.0;net10.0-android36.1</TargetFrameworks>
     <RootNamespace>Noir</RootNamespace>
     <AssemblyName>Noir.Mobile.Scripting</AssemblyName>
     <LangVersion>14.0</LangVersion>
@@ -13,7 +13,7 @@
     <NoWarn>$(NoWarn);CA1422;CS1591</NoWarn>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-android35.0'">
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-android36.1'">
     <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
     <AndroidUseLatestPlatformSdk>true</AndroidUseLatestPlatformSdk>
     <RuntimeIdentifiers>android-arm64;android-x64</RuntimeIdentifiers>
