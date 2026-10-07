@@ -56,9 +56,25 @@ static Mat4 lookAt(Vec3 eye,Vec3 center,Vec3 up){
     r.m[12]=-dot(s,eye);r.m[13]=-dot(u,eye);r.m[14]=dot(f,eye);
     return r;
 }
-static Mat4 model(float x,float y,float z,float sx,float sy,float sz){
-    Mat4 r=identity();
-    r.m[0]=sx;r.m[5]=sy;r.m[10]=sz;r.m[12]=x;r.m[13]=y;r.m[14]=z;
+static Mat4 rotationX(float a){
+    Mat4 r=identity();float c=std::cos(a),s=std::sin(a);
+    r.m[5]=c;r.m[6]=s;r.m[9]=-s;r.m[10]=c;return r;
+}
+static Mat4 rotationY(float a){
+    Mat4 r=identity();float c=std::cos(a),s=std::sin(a);
+    r.m[0]=c;r.m[2]=-s;r.m[8]=s;r.m[10]=c;return r;
+}
+static Mat4 rotationZ(float a){
+    Mat4 r=identity();float c=std::cos(a),s=std::sin(a);
+    r.m[0]=c;r.m[1]=s;r.m[4]=-s;r.m[5]=c;return r;
+}
+static Mat4 model(float x,float y,float z,float rx,float ry,float rz,float sx,float sy,float sz){
+    Mat4 r=mul(identity(),rotationZ(rz));
+    r=mul(r,rotationY(ry));
+    r=mul(r,rotationX(rx));
+    Mat4 s=identity();s.m[0]=sx;s.m[5]=sy;s.m[10]=sz;
+    r=mul(r,s);
+    r.m[12]=x;r.m[13]=y;r.m[14]=z;
     return r;
 }
 static float terrainHeight(float x,float z){
@@ -188,6 +204,12 @@ void main(){
 )GLSL";
 
 struct Vertex { float px,py,pz,nx,ny,nz; };
+struct SceneInstance {
+    float x,y,z;
+    float sx,sy,sz;
+    float rx,ry,rz;
+    int kind;
+};
 
 static void addCube(std::vector<Vertex>& out,float x,float y,float z,float sx,float sy,float sz){
     static const float p[36][6]={
@@ -212,9 +234,15 @@ static void addCube(std::vector<Vertex>& out,float x,float y,float z,float sx,fl
 struct Renderer::Impl {
     GLuint pbr=0,sky=0,vao=0,vbo=0,skyVao=0;
     std::vector<Vertex> objects;
+    std::vector<SceneInstance> scene;
     int width=1,height=1;
     float frameMs=16.6f;
     bool ready=false;
+    int skyMode=2;
+    float environmentExposure=1.0f;
+    float skyBrightness=1.0f;
+    float fogDensity=0.018f;
+    Vec3 sunDir{-0.38f,-0.82f,-0.32f};
 
     void destroy(){
         if(vbo)glDeleteBuffers(1,&vbo);
@@ -256,9 +284,71 @@ struct Renderer::Impl {
         glEnableVertexAttribArray(1);glVertexAttribPointer(1,3,GL_FLOAT,GL_FALSE,sizeof(Vertex),(void*)(3*sizeof(float)));
         glBindVertexArray(0);
         glGenVertexArrays(1,&skyVao);
-        glEnable(GL_DEPTH_TEST);glDepthFunc(GL_LEQUAL);glEnable(GL_CULL_FACE);
-        glCullFace(GL_BACK);
+        glEnable(GL_DEPTH_TEST);glDepthFunc(GL_LEQUAL);glDisable(GL_CULL_FACE);
         ready=true;return true;
+    }
+
+    void setScene(const std::vector<SceneInstance>& in){scene=in;}
+    void setEnvironment(int mode,float exposure,float brightness,float fog,const Vec3& sun){
+        skyMode=std::max(0,mode);
+        environmentExposure=std::max(0.05f,exposure);
+        skyBrightness=std::max(0.0f,brightness);
+        fogDensity=std::max(0.0f,fog*12.0f);
+        sunDir=norm(sun);
+    }
+
+    static Vec3 colorForKind(int kind){
+        switch(kind){
+            case 1: return {0.62f,0.38f,0.16f};   // CHARACTER3D
+            case 2: return {0.20f,0.52f,0.90f};   // PLAYER3D
+            case 3: return {0.10f,0.75f,0.96f};   // CAMERA3D
+            case 4: return {1.00f,0.78f,0.20f};   // LIGHT3D
+            case 5: return {0.34f,0.55f,0.82f};   // MESH3D
+            case 9: return {0.34f,0.62f,0.70f};   // STATIC_BODY3D
+            case 15:return {0.12f,0.46f,0.70f};   // WATER3D
+            case 16:return {0.24f,0.52f,0.28f};   // TERRAIN3D
+            case 17:return {0.20f,0.60f,0.27f};   // FOLIAGE3D
+            case 21:return {0.65f,0.46f,0.88f};   // REFLECTION_PROBE3D
+            case 23:return {0.75f,0.50f,0.25f};   // SKY3D
+            default:return {0.47f,0.52f,0.60f};
+        }
+    }
+
+    void drawSceneInstances(const Mat4& vp,const Vec3& cam){
+        if(scene.empty())return;
+        glUseProgram(pbr);
+        glBindVertexArray(vao);
+        glUniformMatrix4fv(glGetUniformLocation(pbr,"uVP"),1,GL_FALSE,vp.m);
+        glUniform3f(glGetUniformLocation(pbr,"uCamera"),cam.x,cam.y,cam.z);
+        glUniform3f(glGetUniformLocation(pbr,"uSunDir"),sunDir.x,sunDir.y,sunDir.z);
+        glUniform3f(glGetUniformLocation(pbr,"uSunColor"),1.85f,1.62f,1.32f);
+        Vec3 sky=skyColor();
+        glUniform3f(glGetUniformLocation(pbr,"uSkyColor"),sky.x,sky.y,sky.z);
+        glUniform1f(glGetUniformLocation(pbr,"uExposure"),environmentExposure);
+        glUniform1f(glGetUniformLocation(pbr,"uFog"),fogDensity);
+        glUniform1f(glGetUniformLocation(pbr,"uRoughness"),0.58f);
+        glUniform1f(glGetUniformLocation(pbr,"uMetallic"),0.06f);
+        for(const SceneInstance& n:scene){
+            if(n.kind==24)return; // WorldEnvironment never reaches the native list, kept safe.
+            Mat4 m=model(n.x,n.y,n.z,n.rx*0.0174532925f,n.ry*0.0174532925f,n.rz*0.0174532925f,
+                         std::max(0.05f,std::fabs(n.sx)),std::max(0.05f,std::fabs(n.sy)),std::max(0.05f,std::fabs(n.sz)));
+            Vec3 color=colorForKind(n.kind);
+            glUniform3f(glGetUniformLocation(pbr,"uColor"),color.x,color.y,color.z);
+            glUniformMatrix4fv(glGetUniformLocation(pbr,"uModel"),1,GL_FALSE,m.m);
+            glDrawArrays(GL_TRIANGLES,0,36);
+        }
+        glBindVertexArray(0);
+    }
+
+    Vec3 skyColor() const {
+        switch(skyMode){
+            case 1:return {0.32f,0.46f,0.68f}; // physical
+            case 3:return {0.20f,0.30f,0.52f}; // shader material
+            case 4:return {0.18f,0.28f,0.42f}; // gradient
+            case 5:return {0.25f,0.38f,0.58f}; // cubemap
+            case 6:return {0.40f,0.50f,0.62f}; // HDRI
+            default:return {0.36f,0.50f,0.72f};
+        }
     }
 
     void drawCubeRange(size_t first,size_t count,const Mat4& vp,const Vec3& color,float rough,float metal,
@@ -316,14 +406,24 @@ void Renderer::frame(float yawDeg,float pitchDeg,float distance,float tx,float t
     glDisable(GL_DEPTH_TEST);
     glUseProgram(impl_->sky);
     glBindVertexArray(impl_->skyVao);
-    glUniform3f(glGetUniformLocation(impl_->sky,"uTop"),0.025f,0.055f,0.11f);
-    glUniform3f(glGetUniformLocation(impl_->sky,"uHorizon"),0.12f,0.22f,0.34f);
-    glUniform3f(glGetUniformLocation(impl_->sky,"uSunDir"),-0.38f,-0.82f,-0.32f);
+    Vec3 skyTop=impl_->skyColor();
+    Vec3 skyHorizon{skyTop.x*2.4f,skyTop.y*2.1f,skyTop.z*1.85f};
+    if(impl_->skyMode==1){
+        skyTop={0.20f,0.35f,0.62f};
+        skyHorizon={0.52f,0.58f,0.68f};
+    }else if(impl_->skyMode==3){
+        skyTop={0.09f,0.16f,0.30f};
+        skyHorizon={0.34f,0.22f,0.46f};
+    }
+    glUniform3f(glGetUniformLocation(impl_->sky,"uTop"),skyTop.x,skyTop.y,skyTop.z);
+    glUniform3f(glGetUniformLocation(impl_->sky,"uHorizon"),std::min(1.0f,skyHorizon.x),std::min(1.0f,skyHorizon.y),std::min(1.0f,skyHorizon.z));
+    glUniform3f(glGetUniformLocation(impl_->sky,"uSunDir"),impl_->sunDir.x,impl_->sunDir.y,impl_->sunDir.z);
     glUniform1f(glGetUniformLocation(impl_->sky,"uPitch"),pitchDeg);
     glDrawArrays(GL_TRIANGLES,0,3);
     glBindVertexArray(0);
 
     glEnable(GL_DEPTH_TEST);
+    glDisable(GL_CULL_FACE);
     glClear(GL_DEPTH_BUFFER_BIT);
     Vec3 sun{-0.38f,-0.82f,-0.32f};
     Vec3 skyColor{0.36f,0.50f,0.72f};
@@ -332,6 +432,7 @@ void Renderer::frame(float yawDeg,float pitchDeg,float distance,float tx,float t
     impl_->drawCubeRange(0,49*36,vp,{0.19f,0.29f,0.22f},0.88f,0.02f,cam,sun,skyColor);
     impl_->drawCubeRange(49*36,5*36,vp,{0.22f,0.32f,0.46f},0.48f,0.14f,cam,sun,skyColor);
     impl_->drawCubeRange(54*36,20*36,vp,{0.30f,0.20f,0.11f},0.78f,0.01f,cam,sun,skyColor);
+    impl_->drawSceneInstances(vp,cam);
 
     // A subtle editor-only grid is intentionally part of the graphics library,
     // not a Java canvas paint, so it stays locked to the 3D world.
