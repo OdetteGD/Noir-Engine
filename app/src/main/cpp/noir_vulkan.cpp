@@ -27,7 +27,9 @@ struct Runtime {
     VkSemaphore imageAvailable=VK_NULL_HANDLE;
     VkSemaphore renderFinished=VK_NULL_HANDLE;
     VkFence inFlight=VK_NULL_HANDLE;
-    VkImage images[8]{};\n    VkImageView views[8]{};\n    VkFramebuffer framebuffers[8]{};\n    uint32_t imageCount=0;
+    VkImage images[8]{};
+    VkImageView views[8]{};
+    VkFramebuffer framebuffers[8]{};\n    uint32_t imageCount=0;
     VkPhysicalDeviceProperties props{};
     uint32_t apiVersion=VK_API_VERSION_1_0;
     ANativeWindow* window=nullptr;
@@ -136,7 +138,7 @@ bool createSwapchain(){
     VkSwapchainCreateInfoKHR ci{VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
     ci.surface=g.surface;ci.minImageCount=imageCount;ci.imageFormat=chosen.format;ci.imageColorSpace=chosen.colorSpace;ci.imageExtent=ex;
     ci.imageArrayLayers=1;ci.imageUsage=VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;ci.imageSharingMode=VK_SHARING_MODE_EXCLUSIVE;
-    ci.preTransform=caps.currentTransform;ci.compositeAlpha=VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;ci.presentMode=VK_PRESENT_MODE_FIFO_KHR;ci.clipped=VK_TRUE;
+    ci.preTransform=caps.currentTransform;ci.compositeAlpha=VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;ci.presentMode=VK_PRESENT_MODE_FIFO_KHR;ci.clipped=VK_TRUE;
     if(vkCreateSwapchainKHR(g.device,&ci,nullptr,&g.swapchain)!=VK_SUCCESS)return false;
     g.format=chosen.format;g.extent=ex;return true;
 }
