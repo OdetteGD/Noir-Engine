@@ -370,7 +370,7 @@ struct Renderer::Impl {
         glEnableVertexAttribArray(0);glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,sizeof(Vertex),(void*)0);
         glEnableVertexAttribArray(1);glVertexAttribPointer(1,3,GL_FLOAT,GL_FALSE,sizeof(Vertex),(void*)(3*sizeof(float)));
         glBindVertexArray(0);
-        std::vector<Vertex> shapes[3];
+        std::vector<Vertex> shapes[5];
         addCube(shapes[0],0,0,0,1,1,1);
         addCone(shapes[1],1.0f,2.0f,12);
         addRock(shapes[2]);
@@ -540,6 +540,11 @@ void Renderer::frame(float yawDeg,float pitchDeg,float distance,float tx,float t
     if(!impl_->ready)return;
     auto start=std::chrono::steady_clock::now();
 
+    glViewport(0,0,impl_->width,impl_->height);
+    glDisable(GL_SCISSOR_TEST);
+    glClearColor(0.035f,0.055f,0.085f,1.0f);
+    glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+
     float yr=yawDeg*0.01745329252f,pr=pitchDeg*0.01745329252f;
     Vec3 target{tx,ty,tz};
     Vec3 cam{tx+std::cos(pr)*std::cos(yr)*distance,
@@ -588,9 +593,54 @@ void Renderer::frame(float yawDeg,float pitchDeg,float distance,float tx,float t
     auto end=std::chrono::steady_clock::now();
     impl_->frameMs=std::chrono::duration<float,std::milli>(end-start).count();
 }
+void Renderer::frameRuntime(float x,float y,float z,float yawDeg,float pitchDeg,bool editorMode){
+    if(!impl_->ready)return;
+    auto start=std::chrono::steady_clock::now();
+    glViewport(0,0,impl_->width,impl_->height);
+    glDisable(GL_SCISSOR_TEST);
+    glClearColor(0.035f,0.055f,0.085f,1.0f);
+    glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+
+    float yr=yawDeg*0.01745329252f,pr=pitchDeg*0.01745329252f;
+    Vec3 cam{x,y,z};
+    Vec3 forward{std::cos(pr)*std::cos(yr),std::sin(pr),std::cos(pr)*std::sin(yr)};
+    Vec3 target=cam+forward;
+    Mat4 vp=mul(perspective(1.11701f,float(impl_->width)/float(impl_->height),0.05f,180.0f),
+                lookAt(cam,target,{0,1,0}));
+
+    glDisable(GL_DEPTH_TEST);
+    glUseProgram(impl_->sky);
+    glBindVertexArray(impl_->skyVao);
+    Vec3 skyTop=impl_->skyColor();
+    Vec3 skyHorizon{skyTop.x*2.4f,skyTop.y*2.1f,skyTop.z*1.85f};
+    skyTop=skyTop*impl_->skyBrightness;
+    skyHorizon=skyHorizon*impl_->skyBrightness;
+    glUniform3f(glGetUniformLocation(impl_->sky,"uTop"),std::min(1.0f,skyTop.x),std::min(1.0f,skyTop.y),std::min(1.0f,skyTop.z));
+    glUniform3f(glGetUniformLocation(impl_->sky,"uHorizon"),std::min(1.0f,skyHorizon.x),std::min(1.0f,skyHorizon.y),std::min(1.0f,skyHorizon.z));
+    glUniform3f(glGetUniformLocation(impl_->sky,"uSunDir"),impl_->sunDir.x,impl_->sunDir.y,impl_->sunDir.z);
+    glUniform1f(glGetUniformLocation(impl_->sky,"uPitch"),pitchDeg);
+    glUniform1f(glGetUniformLocation(impl_->sky,"uSkyMode"),float(impl_->skyMode));
+    glDrawArrays(GL_TRIANGLES,0,3);
+    glBindVertexArray(0);
+
+    glEnable(GL_DEPTH_TEST);
+    glDisable(GL_CULL_FACE);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    impl_->drawSceneInstances(vp,cam);
+
+    auto end=std::chrono::steady_clock::now();
+    impl_->frameMs=std::chrono::duration<float,std::milli>(end-start).count();
+}
+
 float Renderer::frameTimeMs() const{return impl_->frameMs;}
 const char* Renderer::backendInfo() const{return "NoirGFX C++ / OpenGL ES 3.0 • mobile PBR";}
 
+
+extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_graphicsFrameRuntime
+  (JNIEnv*,jclass,jfloat x,jfloat y,jfloat z,jfloat yaw,jfloat pitch,jboolean editorMode){
+    if(!gRenderer)return;
+    gRenderer->frameRuntime(x,y,z,yaw,pitch,editorMode);
+}
 
 extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_graphicsSetScene
   (JNIEnv* env,jclass,jfloatArray snapshot){

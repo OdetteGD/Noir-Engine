@@ -5,7 +5,7 @@ name: Noir C# Mobile Scripting
 on:
   workflow_dispatch:
   push:
-    branches: [main, noir-editor-upgrade, noir-editor-v1.2-world-csharp-vulkan, noir-world-environment-quality, noir-v1.3-world-vulkan-csharp, noir-v1.4-crash-world]
+    branches: [main, noir-editor-upgrade, noir-editor-v1.2-world-csharp-vulkan, noir-world-environment-quality, noir-v1.3-world-vulkan-csharp, noir-v1.4-crash-world, noir-v1.5-real-world-render-fix]
 
 permissions:
   contents: read

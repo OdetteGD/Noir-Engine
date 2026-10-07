@@ -67,6 +67,7 @@ struct Runtime {
     AAssetManager* assets=nullptr;ANativeWindow* window=nullptr;bool initialized=false;
     std::vector<Instance> scene;int skyMode=2;float exposure=1.0f,brightness=1.0f,fog=0.008f;float quality=1.0f;Vec3 sun{-0.38f,-0.82f,-0.32f};
     float yaw=-90,pitch=12,distance=18,targetX=0,targetY=1.4f,targetZ=0;
+    bool runtimeCamera=false;float runtimeX=0,runtimeY=1.7f,runtimeZ=6,runtimeYaw=-90,runtimePitch=0;
 } g;
 
 static bool instanceExt(const char*n){uint32_t c=0;if(vkEnumerateInstanceExtensionProperties(nullptr,&c,nullptr)!=VK_SUCCESS)return false;std::vector<VkExtensionProperties> e(c);if(c)vkEnumerateInstanceExtensionProperties(nullptr,&c,e.data());for(auto&x:e)if(!std::strcmp(x.extensionName,n))return true;return false;}
@@ -145,7 +146,15 @@ static bool makeSwap(){
     uint32_t count=caps.minImageCount+1;if(caps.maxImageCount&&count>caps.maxImageCount)count=caps.maxImageCount;
     VkSwapchainCreateInfoKHR si{VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};si.surface=g.surface;si.minImageCount=count;si.imageFormat=fmt.format;si.imageColorSpace=fmt.colorSpace;si.imageExtent=ex;si.imageArrayLayers=1;si.imageUsage=VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;si.imageSharingMode=VK_SHARING_MODE_EXCLUSIVE;si.preTransform=caps.currentTransform;si.compositeAlpha=VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;si.presentMode=VK_PRESENT_MODE_FIFO_KHR;si.clipped=VK_TRUE;
     if(vkCreateSwapchainKHR(g.device,&si,nullptr,&g.swapchain)!=VK_SUCCESS)return false;
-    g.format=fmt.format;g.extent=ex;vkGetSwapchainImagesKHR(g.device,g.swapchain,&g.imageCount,nullptr);if(!g.imageCount||g.imageCount>8)return false;vkGetSwapchainImagesKHR(g.device,g.swapchain,&g.imageCount,g.images);
+    g.format=fmt.format;g.extent=ex;
+    uint32_t countImages=0;
+    vkGetSwapchainImagesKHR(g.device,g.swapchain,&countImages,nullptr);
+    if(!countImages)return false;
+    std::vector<VkImage> swapImages(countImages);
+    vkGetSwapchainImagesKHR(g.device,g.swapchain,&countImages,swapImages.data());
+    if(countImages>8)countImages=8;
+    g.imageCount=countImages;
+    for(uint32_t i=0;i<g.imageCount;i++)g.images[i]=swapImages[i];
     VkImageViewCreateInfo iv{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};iv.viewType=VK_IMAGE_VIEW_TYPE_2D;iv.format=g.format;iv.subresourceRange.aspectMask=VK_IMAGE_ASPECT_COLOR_BIT;iv.subresourceRange.levelCount=1;iv.subresourceRange.layerCount=1;
     for(uint32_t i=0;i<g.imageCount;i++){iv.image=g.images[i];if(vkCreateImageView(g.device,&iv,nullptr,&g.views[i])!=VK_SUCCESS)return false;}
     return true;
@@ -161,6 +170,22 @@ static bool makeDepth(){
 static std::vector<uint32_t> shader(const char*name){
     std::vector<uint32_t> out;if(!g.assets)return out;AAsset*a=AAssetManager_open(g.assets,name,AASSET_MODE_BUFFER);if(!a)return out;size_t bytes=AAsset_getLength(a);if(bytes<4){AAsset_close(a);return out;}out.resize((bytes+3)/4);AAsset_read(a,out.data(),bytes);AAsset_close(a);return out;
 }
+static bool makeFramebuffers(){
+    if(!g.renderPass||!g.depthView)return false;
+    for(uint32_t i=0;i<g.imageCount;i++){
+        VkImageView at[2]={g.views[i],g.depthView};
+        VkFramebufferCreateInfo fi{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
+        fi.renderPass=g.renderPass;
+        fi.attachmentCount=2;
+        fi.pAttachments=at;
+        fi.width=g.extent.width;
+        fi.height=g.extent.height;
+        fi.layers=1;
+        if(vkCreateFramebuffer(g.device,&fi,nullptr,&g.framebuffers[i])!=VK_SUCCESS)return false;
+    }
+    return true;
+}
+
 static bool makeRenderPass(){
     VkAttachmentDescription color{};color.format=g.format;color.samples=VK_SAMPLE_COUNT_1_BIT;color.loadOp=VK_ATTACHMENT_LOAD_OP_CLEAR;color.storeOp=VK_ATTACHMENT_STORE_OP_STORE;color.initialLayout=VK_IMAGE_LAYOUT_UNDEFINED;color.finalLayout=VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
     VkAttachmentDescription depth{};depth.format=g.depthFormat;depth.samples=VK_SAMPLE_COUNT_1_BIT;depth.loadOp=VK_ATTACHMENT_LOAD_OP_CLEAR;depth.storeOp=VK_ATTACHMENT_STORE_OP_DONT_CARE;depth.stencilLoadOp=VK_ATTACHMENT_LOAD_OP_DONT_CARE;depth.stencilStoreOp=VK_ATTACHMENT_STORE_OP_DONT_CARE;depth.initialLayout=VK_IMAGE_LAYOUT_UNDEFINED;depth.finalLayout=VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
@@ -272,9 +297,33 @@ static void rebuildVertices(){
     }
     std::memcpy(g.mapped,out.data(),bytes);g.vertexCount=static_cast<uint32_t>(out.size());
 }
-static bool makeAll(){if(!findDepthFormat()||!makeSwap()||!makeDepth()||!makeRenderPass()||!makePipeline()||!makeFrameResources())return false;rebuildVertices();return true;}
-static Mat4 viewProj(){float yr=g.yaw*0.0174532925f,pr=g.pitch*0.0174532925f;Vec3 cam{g.targetX+std::cos(pr)*std::cos(yr)*g.distance,g.targetY+std::sin(pr)*g.distance,g.targetZ+std::cos(pr)*std::sin(yr)*g.distance};return mul(perspective(1.117f,float(g.extent.width)/float(std::max(1u,g.extent.height)),0.05f,180),lookAt(cam,{g.targetX,g.targetY,g.targetZ},{0,1,0}));}
-static Vec3 cameraPos(){float yr=g.yaw*0.0174532925f,pr=g.pitch*0.0174532925f;return {g.targetX+std::cos(pr)*std::cos(yr)*g.distance,g.targetY+std::sin(pr)*g.distance,g.targetZ+std::cos(pr)*std::sin(yr)*g.distance};}
+static bool makeAll(){
+    if(!findDepthFormat()||!makeSwap()||!makeDepth()||!makeRenderPass()||
+       !makeFramebuffers()||!makePipeline()||!makeFrameResources())return false;
+    rebuildVertices();
+    return true;
+}
+static Vec3 currentCamera(){
+    if(g.runtimeCamera){
+        return {g.runtimeX,g.runtimeY,g.runtimeZ};
+    }
+    float yr=g.yaw*0.0174532925f,pr=g.pitch*0.0174532925f;
+    return {g.targetX+std::cos(pr)*std::cos(yr)*g.distance,
+            g.targetY+std::sin(pr)*g.distance,
+            g.targetZ+std::cos(pr)*std::sin(yr)*g.distance};
+}
+static Mat4 viewProj(){
+    Vec3 cam=currentCamera();
+    if(g.runtimeCamera){
+        float yr=g.runtimeYaw*0.0174532925f,pr=g.runtimePitch*0.0174532925f;
+        Vec3 f{std::cos(pr)*std::cos(yr),std::sin(pr),std::cos(pr)*std::sin(yr)};
+        return mul(perspective(1.117f,float(g.extent.width)/float(std::max(1u,g.extent.height)),0.05f,180),
+                   lookAt(cam,cam+f,{0,1,0}));
+    }
+    return mul(perspective(1.117f,float(g.extent.width)/float(std::max(1u,g.extent.height)),0.05f,180),
+               lookAt(cam,{g.targetX,g.targetY,g.targetZ},{0,1,0}));
+}
+static Vec3 cameraPos(){return currentCamera();}
 static bool recordAndDraw(uint32_t image){
     vkResetCommandBuffer(g.cmd,0);VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};if(vkBeginCommandBuffer(g.cmd,&bi)!=VK_SUCCESS)return false;
     Vec3 sky=skyColor();VkClearValue clear[2]{};clear[0].color.float32[0]=std::min(1.0f,sky.x*g.brightness);clear[0].color.float32[1]=std::min(1.0f,sky.y*g.brightness);clear[0].color.float32[2]=std::min(1.0f,sky.z*g.brightness);clear[0].color.float32[3]=1;clear[1].depthStencil.depth=1;
@@ -304,7 +353,16 @@ extern "C" JNIEXPORT jboolean JNICALL Java_com_noir_game_engine_NoirNative_vulka
     VkAndroidSurfaceCreateInfoKHR si{VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR};si.window=g.window;if(vkCreateAndroidSurfaceKHR(g.instance,&si,nullptr,&g.surface)!=VK_SUCCESS){reset();return JNI_FALSE;}
     if(!makeDevice()||!makeAll()){reset();return JNI_FALSE;}g.initialized=true;return JNI_TRUE;
 }
-extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanResize(JNIEnv*,jclass,jint w,jint h){if(!g.initialized)return;(void)w;(void)h;}
+extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanResize(JNIEnv*,jclass,jint w,jint h){
+    if(!g.initialized||w<=0||h<=0)return;
+    if(static_cast<uint32_t>(w)==g.extent.width&&static_cast<uint32_t>(h)==g.extent.height)return;
+    destroySwap();
+    if(!makeSwap()||!makeDepth()||!makeRenderPass()||!makeFramebuffers()||!makePipeline()||!makeFrameResources()){
+        reset();
+        return;
+    }
+    rebuildVertices();
+}
 extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanSetScene(JNIEnv*env,jclass,jfloatArray arr){
     if(!g.initialized)return;
     g.scene.clear();
@@ -331,7 +389,14 @@ extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanSet
     rebuildVertices();
 }
 
-extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanSetCamera(JNIEnv*,jclass,jfloat yaw,jfloat pitch,jfloat distance,jfloat tx,jfloat ty,jfloat tz){g.yaw=yaw;g.pitch=pitch;g.distance=distance;g.targetX=tx;g.targetY=ty;g.targetZ=tz;}
+extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanSetCamera(JNIEnv*,jclass,jfloat yaw,jfloat pitch,jfloat distance,jfloat tx,jfloat ty,jfloat tz){
+    g.runtimeCamera=false;
+    g.yaw=yaw;g.pitch=pitch;g.distance=distance;g.targetX=tx;g.targetY=ty;g.targetZ=tz;
+}
+extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanSetRuntimeCamera(JNIEnv*,jclass,jfloat x,jfloat y,jfloat z,jfloat yaw,jfloat pitch){
+    g.runtimeCamera=true;
+    g.runtimeX=x;g.runtimeY=y;g.runtimeZ=z;g.runtimeYaw=yaw;g.runtimePitch=pitch;
+}
 extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanSetEnvironment(JNIEnv*,jclass,jint mode,jfloat exposure,jfloat brightness,jfloat fog,jfloat sx,jfloat sy,jfloat sz){g.skyMode=mode;g.exposure=std::max(0.05f,float(exposure));g.brightness=std::max(0.0f,float(brightness));g.fog=std::max(0.0f,float(fog));g.sun=normalize({sx,sy,sz});}
 extern "C" JNIEXPORT void JNICALL Java_com_noir_game_engine_NoirNative_vulkanSetQuality(JNIEnv*,jclass,jint tier){g.quality=std::max(1.0f,std::min(4.0f,float(tier)));}
 extern "C" JNIEXPORT jboolean JNICALL Java_com_noir_game_engine_NoirNative_vulkanDrawFrame(JNIEnv*,jclass){
