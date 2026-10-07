@@ -71,7 +71,17 @@ public final class NoirEditorView extends android.view.View {
     private void fill(Canvas c,int color,float l,float t,float r,float b){p.setStyle(Paint.Style.FILL);p.setColor(color);c.drawRect(l,t,r,b,p);}
     private void round(Canvas c,int color,float l,float t,float r,float b,float rad){p.setStyle(Paint.Style.FILL);p.setColor(color);c.drawRoundRect(l,t,r,b,rad,rad,p);}
     private void stroke(Canvas c,int color,float width,float l,float t,float r,float b,float rad){p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(width);p.setColor(color);c.drawRoundRect(l,t,r,b,rad,rad,p);p.setStyle(Paint.Style.FILL);}
-    private void text(Canvas c,String s,float x,float y,float size,int color){p.setTypeface(Typeface.create("sans",Typeface.NORMAL));p.setTextSize(size);p.setColor(color);p.setStyle(Paint.Style.FILL);c.drawText(s,x,y,p);}
+    private void text(Canvas c,String s,float x,float y,float size,int color){
+        if(s==null)s="";
+        p.setTypeface(Typeface.create("sans",Typeface.NORMAL));p.setTextSize(size);p.setColor(color);p.setStyle(Paint.Style.FILL);
+        float max=Math.max(0,getWidth()-x-dp(8));
+        if(max>0 && p.measureText(s)>max){
+            String ell="…";float ew=p.measureText(ell);int end=s.length();
+            while(end>0 && p.measureText(s,0,end)+ew>max)end--;
+            s=end>0?s.substring(0,end)+ell:ell;
+        }
+        c.save();c.clipRect(x,y-size*1.5f,getWidth()-dp(4),y+size*0.55f);c.drawText(s,x,y,p);c.restore();
+    }
     private void bold(Canvas c,String s,float x,float y,float size,int color){p.setTypeface(Typeface.create("sans",Typeface.BOLD));p.setTextSize(size);p.setColor(color);p.setStyle(Paint.Style.FILL);c.drawText(s,x,y,p);}
     private boolean hit(float x,float y,float l,float t,float r,float b){return x>=l&&x<=r&&y>=t&&y<=b;}
 
@@ -353,7 +363,7 @@ public final class NoirEditorView extends android.view.View {
     private void drawCSharp(Canvas c,float l,float t,float r,float b){
         File root=state.projectRoot;
         text(c,"C# MOBILE SCRIPTING",l+dp(16),t+dp(68),dp(11),TEXT);
-        text(c,"using Noir;  •  net10.0-android  •  C# 14",l+dp(16),t+dp(88),dp(8),ACCENT);
+        text(c,"using Noir;  •  net10.0-android36.1  •  C# 14",l+dp(16),t+dp(88),dp(8),ACCENT);
         boolean ready=root!=null;
         text(c,ready?"PROJECT READY":"OPEN A PROJECT TO ENABLE C#",l+dp(16),t+dp(112),dp(10),ready?GOOD:WARN);
         text(c,"Self-contained mobile SDK + .csproj",l+dp(18),t+dp(146),dp(9),MUTED);
@@ -691,7 +701,15 @@ public final class NoirEditorView extends android.view.View {
         if(row>=0&&row<fs.length){
             File f=fs[row];
             if(f.isDirectory()){browserHistory.push(root);browserDir=f;status="Opened "+f.getName();}
-            else{state.log("Asset selected: "+f.getName());status="Asset "+f.getName();}
+            else{
+                String lower=f.getName().toLowerCase(Locale.US);
+                if(lower.endsWith(".cs")||lower.endsWith(".game")){
+                    NoirScriptIdeView.open(getContext(),f);
+                    status="Opened "+f.getName()+" • "+(lower.endsWith(".cs")?"C#":"Noir .game");
+                }else{
+                    state.log("Asset selected: "+f.getName());status="Asset "+f.getName();
+                }
+            }
         }
     }
 
@@ -900,7 +918,7 @@ public final class NoirEditorView extends android.view.View {
 
     private void openCSharpFolder(){
         if(state.projectRoot==null){Toast.makeText(getContext(),"Open a Noir project first",Toast.LENGTH_SHORT).show();return;}
-        File folder=new File(state.projectRoot,"scripts/csharp");
+        File folder=new File(state.projectRoot,"csharp/Noir.Game");
         if(folder.isDirectory()){browserDir=folder;tab=1;status="C# folder opened in Assets";}
         else{status="Create the C# project first";Toast.makeText(getContext(),"Create C# project first",Toast.LENGTH_SHORT).show();}
         invalidate();
