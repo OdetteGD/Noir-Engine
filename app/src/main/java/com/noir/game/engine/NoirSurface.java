@@ -54,6 +54,7 @@ public final class NoirSurface extends GLSurfaceView implements NoirViewport {
                 NoirRenderer.Camera c=renderer.camera();
                 NoirNative.graphicsFrame(c.yaw,c.pitch,c.distance,c.targetX,c.targetY,c.targetZ,
                         renderer.mode()==NoirRenderer.Mode.EDITOR);
+                renderer.setFrameTimeMs(NoirNative.graphicsFrameTimeMs());
             }else{
                 renderer.onDrawFrame(gl);
             }
