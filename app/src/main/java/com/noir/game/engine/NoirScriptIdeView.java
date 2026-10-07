@@ -161,7 +161,7 @@ public final class NoirScriptIdeView {
         ArrayList<String> out=new ArrayList<>();
         String[] lines=s.replace("\r","").split("\n",-1);
         int braces=0,parens=0,brackets=0;
-        boolean blockComment=false,string=false,charLiteral=false;
+                    if(c=='\''){charLiteral=false;}
 
         for(int li=0;li<lines.length;li++){
             String line=lines[li];
@@ -190,7 +190,7 @@ public final class NoirScriptIdeView {
                     continue;
                 }
                 if(c=='"'){string=true;continue;}
-                if(c=='\\''){charLiteral=true;continue;}
+                if(c=='\''){charLiteral=true;}
 
                 if(c=='#'){
                     int firstNonWs=0;
