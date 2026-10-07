@@ -11,6 +11,7 @@ import com.noir.game.engine.scene.NoirNode;
 import com.noir.game.engine.scene.NoirScene;
 import com.noir.game.engine.render.NoirRenderer;
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 
 public final class MainActivity extends Activity {
     private NoirRenderer renderer;
@@ -44,40 +45,89 @@ public final class MainActivity extends Activity {
     }
 
     private NoirScene loadProjectScene(String projectPath) {
-        String src="scene Main\nnode World {\n type = NODE3D\n}\nnode MainCamera {\n type = CAMERA3D\n position = (0, 2, 6)\n}\n";
-        if(projectPath!=null) {
-            File f=new File(projectPath,"scenes/Main.game");
-            if(f.isFile()) {
-                try {
-                    src=new String(java.nio.file.Files.readAllBytes(f.toPath()),java.nio.charset.StandardCharsets.UTF_8);
-                } catch(Exception ignored) {}
+        // Opening a project must never take down the editor because of a malformed
+        // or partially-imported scene. Always keep a known-good fallback scene.
+        String fallback = "scene Main\n"
+                + "node World {\n type = NODE3D\n}\n"
+                + "node MainCamera {\n type = CAMERA3D\n position = (0, 2, 6)\n}\n";
+        String src = fallback;
+
+        try {
+            if (projectPath != null && !projectPath.trim().isEmpty()) {
+                File projectRoot = new File(projectPath);
+                File canonicalRoot = projectRoot.getCanonicalFile();
+                File projectFile = new File(canonicalRoot, "project.game");
+                File sceneFile = new File(canonicalRoot, "scenes/Main.game");
+
+                if (canonicalRoot.isDirectory() && projectFile.isFile() && sceneFile.isFile()) {
+                    src = readUtf8(sceneFile);
+                    if (src.trim().isEmpty()) src = fallback;
+                }
             }
+        } catch (Exception ignored) {
+            src = fallback;
         }
-        GameFileParser.Result r=new GameFileParser().parse(src,"scenes/Main.game");
-        NoirScene s=r.scene;
-        if(s==null) s=new NoirScene("Main");
-        NoirNode root=s.root;
-        if(root.find("WorldEnvironment")==null){
-            NoirNode env=root.add(new NoirNode("WorldEnvironment","WorldEnvironment",NoirNode.Kind.WORLD_ENVIRONMENT));
-            env.properties.put("sky","procedural");
-            env.properties.put("clouds","procedural");
-            env.properties.put("exposure","1.0");
+
+        NoirScene scene;
+        try {
+            GameFileParser.Result result = new GameFileParser().parse(src, "scenes/Main.game");
+            scene = result == null ? null : result.scene;
+        } catch (Throwable ignored) {
+            scene = null;
         }
-        if(root.find("Sun")==null){
-            NoirNode sun=root.add(new NoirNode("Sun","Sun",NoirNode.Kind.LIGHT3D));
-            sun.properties.put("type","DIRECTIONAL");
-            sun.properties.put("energy","3.0");
-            sun.properties.put("shadows","PCF");
+        if (scene == null || scene.root == null) {
+            scene = new NoirScene("Main");
         }
-        if(root.find("Player3D")==null){
-            NoirNode player=root.add(new NoirNode("Player3D","Player3D",NoirNode.Kind.PLAYER3D));
-            player.properties.put("script","scripts/player.game");
-            player.properties.put("speed","5.0");
-            player.properties.put("jump","4.5");
-            NoirNode cam=player.add(new NoirNode("Camera3D","Camera3D",NoirNode.Kind.CAMERA3D));
-            cam.properties.put("mobile_look","touch+gyro");
+
+        NoirNode root = scene.root;
+        try {
+            if (root.find("WorldEnvironment") == null) {
+                NoirNode env = root.add(new NoirNode(
+                        "WorldEnvironment", "WorldEnvironment", NoirNode.Kind.WORLD_ENVIRONMENT));
+                env.properties.put("sky", "procedural");
+                env.properties.put("clouds", "procedural");
+                env.properties.put("exposure", "1.0");
+            }
+            if (root.find("Sun") == null) {
+                NoirNode sun = root.add(new NoirNode("Sun", "Sun", NoirNode.Kind.LIGHT3D));
+                sun.properties.put("type", "DIRECTIONAL");
+                sun.properties.put("energy", "3.0");
+                sun.properties.put("shadows", "PCF");
+            }
+            if (root.find("Player3D") == null) {
+                NoirNode player = root.add(new NoirNode(
+                        "Player3D", "Player3D", NoirNode.Kind.PLAYER3D));
+                player.properties.put("script", "scripts/player.game");
+                player.properties.put("speed", "5.0");
+                player.properties.put("jump", "4.5");
+                NoirNode cam = player.add(new NoirNode(
+                        "Camera3D", "Camera3D", NoirNode.Kind.CAMERA3D));
+                cam.properties.put("mobile_look", "touch+gyro");
+            }
+            if (root.find("MainCamera") == null) {
+                root.add(new NoirNode("MainCamera", "MainCamera", NoirNode.Kind.CAMERA3D));
+            }
+        } catch (Throwable ignored) {
+            // A broken optional node/property must not prevent the editor from opening.
         }
-        if(root.find("MainCamera")==null) root.add(new NoirNode("MainCamera","MainCamera",NoirNode.Kind.CAMERA3D));
-        return s;
+        return scene;
+    }
+
+    private String readUtf8(File file) throws IOException {
+        try (InputStream in = new BufferedInputStream(new FileInputStream(file))) {
+            ByteArrayOutputStream out = new ByteArrayOutputStream((int)Math.min(file.length(), 1024L * 1024L));
+            byte[] buffer = new byte[8192];
+            int n;
+            long total = 0L;
+            while ((n = in.read(buffer)) != -1) {
+                total += n;
+                if (total > 8L * 1024L * 1024L) {
+                    throw new IOException("Scene file is too large");
+                }
+                out.write(buffer, 0, n);
+            }
+            return out.toString(StandardCharsets.UTF_8.name());
+        }
+    }
     }
 }
