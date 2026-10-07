@@ -838,8 +838,10 @@ public final class NoirEditorView extends android.view.View {
                 boolean enabled="on".equals(next);
                 if("shadows".equals(key))renderer.quality().shadows=enabled;
                 else if("reflections".equals(key))renderer.quality().reflections=enabled;
-                else if("fog".equals(key))renderer.quality().fog=enabled;
-                else if("clouds".equals(key))renderer.quality().clouds=enabled;
+                else if("fog".equals(key)){
+                    renderer.quality().fog=enabled;
+                    state.scene.environment.put("fog_density",enabled?"0.012":"0.0");
+                }else if("clouds".equals(key))renderer.quality().clouds=enabled;
                 renderer.applyScene(state.scene);
                 status="World "+key+" "+next;
             }
@@ -884,9 +886,17 @@ public final class NoirEditorView extends android.view.View {
             return;
         }
         if(y>b-dp(88)&&x>dp(80)&&x<dp(145)){
-            renderer.quality().exposure=Math.max(0.2f,renderer.quality().exposure-0.1f);
+            float value=Math.max(0.2f,renderer.quality().exposure-0.1f);
+            renderer.quality().exposure=value;
+            renderer.environment().exposure=value;
+            state.scene.environment.put("exposure",String.format(Locale.US,"%.2f",value));
+            renderer.applyScene(state.scene);
         }else if(y>b-dp(88)&&x>dp(165)&&x<dp(225)){
-            renderer.quality().exposure=Math.min(3.0f,renderer.quality().exposure+0.1f);
+            float value=Math.min(3.0f,renderer.quality().exposure+0.1f);
+            renderer.quality().exposure=value;
+            renderer.environment().exposure=value;
+            state.scene.environment.put("exposure",String.format(Locale.US,"%.2f",value));
+            renderer.applyScene(state.scene);
         }
     }
 
