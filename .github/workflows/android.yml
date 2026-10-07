@@ -9,6 +9,7 @@ on:
       - noir-world-environment-quality
       - noir-editor-v1.2-world-csharp-vulkan
       - noir-v1.3-world-vulkan-csharp
+      - noir-v1.4-crash-world
 
 permissions:
   contents: read
@@ -128,6 +129,9 @@ jobs:
           set -euo pipefail
           test -f app/src/main/cpp/noir_graphics.cpp
           test -f app/src/main/cpp/noir_graphics.h
+          test -f app/src/main/cpp/noir_world_scene.cpp
+          test -f app/src/main/cpp/noir_world_scene.h
+          test -f app/src/main/java/com/noir/game/engine/NoirCrashReporter.java
           test -f app/src/main/cpp/shaders/noir_forward.vert
           test -f app/src/main/cpp/shaders/noir_forward.frag
           test -f app/src/main/cpp/noir_theme.cpp
