@@ -24,7 +24,7 @@ import javax.microedition.khronos.opengles.GL10;
  */
 public final class NoirRenderer implements GLSurfaceView.Renderer {
     public enum Mode { EDITOR, RUNTIME }
-    public enum QualityPreset { MOBILE, HIGH, ULTRA, EXTREME }
+    public enum QualityPreset { MOBILE, MEDIUM, HIGH, ULTRA, EXTREME }
     public enum GraphicsBackend { GLES, VULKAN }
     private GraphicsBackend backend=GraphicsBackend.GLES;
     private boolean gpuReady;
@@ -93,8 +93,9 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
     private volatile float[] sceneSnapshot=new float[0];
     private volatile int sceneSnapshotVersion;
     private int nativeSceneVersion=-1;
+    private int nativeQualityTier=1;
 
-    public NoirRenderer(){ setQualityPreset(QualityPreset.MOBILE); editorCamera.updateOrbit(); }
+    public NoirRenderer(){ setQualityPreset(QualityPreset.MEDIUM); editorCamera.updateOrbit(); }
     public GraphicsBackend graphicsBackend(){return backend;}
     public boolean isGpuReady(){return gpuReady;}
     public void setGraphicsBackend(GraphicsBackend b){backend=b==null?GraphicsBackend.GLES:b;}
@@ -256,6 +257,7 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
     public int sceneSnapshotVersion(){return sceneSnapshotVersion;}
     public boolean nativeSceneApplied(){return nativeSceneVersion==sceneSnapshotVersion;}
     public void markNativeSceneApplied(){nativeSceneVersion=sceneSnapshotVersion;}
+    public int nativeQualityTier(){return nativeQualityTier;}
 
     public int environmentSkyMode(){
         switch(environment.skyMode){
@@ -301,19 +303,24 @@ public final class NoirRenderer implements GLSurfaceView.Renderer {
     public void setQualityPreset(QualityPreset preset){
         switch(preset){
             case MOBILE:
+            case MEDIUM:
+                nativeQualityTier=1;
                 quality.shadowSize=1024; quality.shadowPcfRadius=1; quality.sunRays=true; quality.godRays=false;
                 quality.clouds=true; quality.reflections=true; quality.fog=true;
                 quality.bloom=false; quality.ambientOcclusion=false; quality.toneMapping=true; quality.colorGrading=false;
                 quality.exposure=1.25f; quality.renderScale=0.85f; break;
             case HIGH:
+                nativeQualityTier=2;
                 quality.shadowSize=1536; quality.shadowPcfRadius=1; quality.sunRays=true; quality.godRays=false;
                 quality.bloom=true; quality.ambientOcclusion=true; quality.toneMapping=true; quality.colorGrading=true;
                 quality.exposure=1.25f; quality.renderScale=1.0f; break;
             case ULTRA:
+                nativeQualityTier=3;
                 quality.shadowSize=2048; quality.shadowPcfRadius=2; quality.sunRays=true; quality.godRays=true;
                 quality.bloom=true; quality.ambientOcclusion=true; quality.toneMapping=true; quality.colorGrading=true;
                 quality.exposure=1.05f; quality.renderScale=1.0f; break;
             case EXTREME:
+                nativeQualityTier=4;
                 quality.shadowSize=2048; quality.shadowPcfRadius=2; quality.sunRays=true; quality.godRays=true;
                 quality.bloom=true; quality.ambientOcclusion=true; quality.toneMapping=true; quality.colorGrading=true;
                 quality.exposure=1.10f; quality.renderScale=1.0f; break;
