@@ -186,7 +186,7 @@ public final class NoirScriptIdeView {
                 }
                 if(charLiteral){
                     if(c=='\\'){i++;continue;}
-                    if(c=='\\''){charLiteral=false;}
+                    if(c=='\''){charLiteral=false;}
                     continue;
                 }
                 if(c=='"'){string=true;continue;}
@@ -200,7 +200,7 @@ public final class NoirScriptIdeView {
                     continue;
                 }
 
-                if(c=='\\u00f7'||c=='\\u00a3'||c=='\\u00d7'||c=='\\u00a7'){
+                if(c=='\u00f7'||c=='\u00a3'||c=='\u00d7'||c=='\u00a7'){
                     out.add(String.format(Locale.US,"Line %d:%d invalid C# character U+%04X '%c'",li+1,i+1,(int)c,c));
                     continue;
                 }
