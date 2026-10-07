@@ -16,10 +16,10 @@ public sealed class PackedScene : Resource
 
 public static class ResourceLoader
 {
-    public static T? Load<T>(string path) where T : Resource
+    public static T? Load<T>(string path) where T : Resource,new()
     {
         if(string.IsNullOrWhiteSpace(path)) return null;
-        return Activator.CreateInstance(typeof(T)) as T;
+        return new T();
     }
 }
 
