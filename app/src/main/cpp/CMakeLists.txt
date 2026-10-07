@@ -6,6 +6,7 @@ target_compile_options(noir3d PRIVATE -O3 -fvisibility=hidden -ffunction-section
 find_library(log-lib log)
 find_library(android-lib android)
 find_library(vulkan-lib vulkan)
+find_library(gles-lib GLESv3)
 # ANativeWindow_* lives in libandroid; Vulkan surface code uses the NDK native-window API.
-target_link_libraries(noir3d PRIVATE ${log-lib} ${android-lib} ${vulkan-lib})
+target_link_libraries(noir3d PRIVATE ${log-lib} ${android-lib} ${vulkan-lib} ${gles-lib})
 set_target_properties(noir3d PROPERTIES OUTPUT_NAME "noir3d")
