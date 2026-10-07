@@ -20,7 +20,7 @@ public final class EditorState {
     public Tool tool=Tool.SELECT;
     public Panel panel=Panel.VIEWPORT;
     public boolean playing;
-    public boolean grid=true;
+    public boolean grid=false;
     public boolean snapping=true;
     public float snapStep=0.25f;
     public final List<String> console=new ArrayList<>();
