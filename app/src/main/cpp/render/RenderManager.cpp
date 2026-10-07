@@ -17,6 +17,7 @@ bool RenderManager::SwitchGraphicsAPI(GraphicsAPI newAPI, ANativeWindow* window)
     pendingWindow_ = window;
     pendingSwitch_ = true;
     pausedForSwitch_ = true;
+    ++requestSerial_;
     return true;
 }
 
@@ -24,6 +25,7 @@ bool RenderManager::ApplyPendingSwitch() noexcept {
     std::unique_ptr<IRenderer> oldRenderer;
     GraphicsAPI requested;
     GraphicsAPI previous;
+    std::uint64_t serial;
     ANativeWindow* window = nullptr;
 
     {
@@ -34,6 +36,7 @@ bool RenderManager::ApplyPendingSwitch() noexcept {
         }
         requested = requestedAPI_;
         previous = activeAPI_;
+        serial = requestSerial_;
         window = pendingWindow_;
         oldRenderer = std::move(activeRenderer_);
     }
@@ -68,8 +71,11 @@ bool RenderManager::ApplyPendingSwitch() noexcept {
         std::lock_guard<std::mutex> lock(mutex_);
         activeRenderer_ = std::move(replacement);
         activeAPI_ = requested;
-        pendingSwitch_ = false;
-        pausedForSwitch_ = false;
+        if(requestSerial_ == serial){
+            pendingSwitch_ = false;
+            pausedForSwitch_ = false;
+        }
+        // A newer UI request remains pending and will be applied on the next render tick.
     }
     return true;
 }
