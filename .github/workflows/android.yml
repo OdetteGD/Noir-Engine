@@ -10,6 +10,7 @@ on:
       - noir-editor-v1.2-world-csharp-vulkan
       - noir-v1.3-world-vulkan-csharp
       - noir-v1.4-crash-world
+      - noir-v1.5-real-world-render-fix
 
 permissions:
   contents: read
