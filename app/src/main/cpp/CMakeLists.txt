@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22.1)
 project(noir3d)
-add_library(noir3d SHARED noir3d.cpp noir_physics.cpp noir_runtime.cpp noir_gles.cpp noir_vulkan.cpp noir_world_environment.cpp)
+add_library(noir3d SHARED noir3d.cpp noir_physics.cpp noir_runtime.cpp noir_gles.cpp noir_vulkan.cpp noir_world_environment.cpp noir_editor_layout.cpp)
 target_compile_features(noir3d PRIVATE cxx_std_17)
 target_compile_options(noir3d PRIVATE -O3 -fvisibility=hidden -ffunction-sections -fdata-sections -fno-exceptions -fno-rtti)
 find_library(log-lib log)
