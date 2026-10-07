@@ -8,6 +8,7 @@ on:
       - noir-editor-upgrade
       - noir-world-environment-quality
       - noir-editor-v1.2-world-csharp-vulkan
+      - noir-v1.3-world-vulkan-csharp
 
 permissions:
   contents: read
