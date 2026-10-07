@@ -20,6 +20,7 @@ public:
     void frameRuntime(float x,float y,float z,float yawDeg,float pitchDeg,bool editorMode);
     float frameTimeMs() const;
     const char* backendInfo() const;
+    const char* lastError() const;
 
 private:
     struct Impl;
