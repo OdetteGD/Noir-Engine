@@ -391,7 +391,8 @@ public final class NoirEditorView extends android.view.View {
         }
         smallButton(c,l+dp(16),b-dp(52),dp(104),"NEW MATERIAL",true);
         smallButton(c,l+dp(128),b-dp(52),dp(86),"VALIDATE",false);
-        text(c,"PBR • GGX • Fresnel • Filmic",l+dp(224),b-dp(32),dp(8),GOOD);
+        smallButton(c,l+dp(222),b-dp(52),dp(112),"OPEN SHADER IDE",true);
+        text(c,"PBR • GGX • Fresnel • Filmic",l+dp(16),b-dp(82),dp(8),GOOD);
     }
 
     private void drawPhysics(Canvas c,float l,float t,float r,float b){
@@ -641,7 +642,8 @@ public final class NoirEditorView extends android.view.View {
         }else if(tab==4){
             if(y>b-dp(76)&&x<dp(190)){state.log("Script compiled successfully");status="Script compile OK";}
         }else if(tab==5){
-            if(y>b-dp(76)&&x<dp(225)){state.log("PBR material graph validated");status="Shader graph valid";}
+            if(y>b-dp(76)&&x>=dp(210)){openShaderEditor();}
+            else if(y>b-dp(76)&&x<dp(225)){state.log("PBR material graph validated");status="Shader graph valid";}
         }else if(tab==6){
             if(y>b-dp(76)&&x<dp(120)){addNodeKind(NoirNode.Kind.RIGID_BODY3D);}
         }else if(tab==7){
@@ -908,6 +910,20 @@ public final class NoirEditorView extends android.view.View {
             state.selected.properties.put("component."+components[which],"enabled");
             state.log("Added "+components[which]+" to "+state.selected.name);status="Component added";invalidate();
         }).show();
+    }
+
+    private void openShaderEditor(){
+        if(state.projectRoot==null){Toast.makeText(getContext(),"Open a Noir project first",Toast.LENGTH_SHORT).show();return;}
+        try{
+            File dir=new File(state.projectRoot,"shaders");if(!dir.exists()&&!dir.mkdirs())throw new IOException("Cannot create shaders folder");
+            File shader=new File(dir,"World.shader");
+            if(!shader.isFile()){
+                String src="shader_type spatial;\nrender_mode cull_back, depth_draw_opaque;\n\nuniform vec4 base_color : source_color = vec4(0.35,0.55,0.85,1.0);\nuniform float roughness : hint_range(0.0,1.0) = 0.55;\nuniform float metallic : hint_range(0.0,1.0) = 0.0;\n\nvoid fragment(){\n    ALBEDO=base_color.rgb;\n    ROUGHNESS=roughness;\n    METALLIC=metallic;\n}\n";
+                try(OutputStream out=new FileOutputStream(shader)){out.write(src.getBytes(java.nio.charset.StandardCharsets.UTF_8));}
+            }
+            NoirScriptIdeView.open(getContext(),shader);
+            status="Opened shaders/World.shader • Shader IDE";
+        }catch(Exception ex){status="Shader IDE failed";Toast.makeText(getContext(),"Shader setup failed: "+ex.getMessage(),Toast.LENGTH_LONG).show();}
     }
 
     private void createCSharpProject(){
