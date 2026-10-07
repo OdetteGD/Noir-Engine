@@ -14,18 +14,14 @@ def noirVulkanGeneratedAssets = file("$buildDir/generated/noir-vulkan-assets")
     inputs.dir(file("src/main/cpp/shaders"))
     outputs.dir(noirVulkanGeneratedAssets)
     doLast {
-        File compiler = file(System.getenv("GLSLANG_VALIDATOR") ?: "glslangValidator")
-        if (!compiler.isFile() && !compiler.exists()) {
-            logger.lifecycle("No glslangValidator found; Vulkan assets will be unavailable and runtime will safely fall back to GLES.")
-            delete(noirVulkanGeneratedAssets)
-            return
-        }
+        String compiler = System.getenv("GLSLANG_VALIDATOR") ?: "glslangValidator"
         delete(noirVulkanGeneratedAssets)
         File out = new File(noirVulkanGeneratedAssets, "vulkan")
         out.mkdirs()
         ["noir_forward.vert", "noir_forward.frag"].each { String shader ->
             exec {
-                commandLine compiler.absolutePath, "-V", file("src/main/cpp/shaders/$shader").absolutePath,
+                ignoreExitValue = false
+                commandLine compiler, "-V", file("src/main/cpp/shaders/$shader").absolutePath,
                         "-o", new File(out, shader + ".spv").absolutePath
             }
         }
