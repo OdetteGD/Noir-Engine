@@ -62,6 +62,7 @@ public final class NoirEditorView extends android.view.View {
     private float tabScroll;
     private float tabGestureStartX;
     private float tabGestureStartScroll;
+    private boolean tabScrolling;
 
     public NoirEditorView(Context c,EditorState s,NoirRenderer r,NoirViewport ss){
         super(c);
