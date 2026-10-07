@@ -236,6 +236,37 @@ struct SceneInstance {
     int kind;
 };
 
+static void addCone(std::vector<Vertex>& out,float radius,float height,int sides){
+    const float pi=3.14159265359f;
+    for(int i=0;i<sides;i++){
+        float a0=2.0f*pi*float(i)/float(sides);
+        float a1=2.0f*pi*float(i+1)/float(sides);
+        float x0=std::cos(a0)*radius,z0=std::sin(a0)*radius;
+        float x1=std::cos(a1)*radius,z1=std::sin(a1)*radius;
+        float nx=std::cos((a0+a1)*0.5f),nz=std::sin((a0+a1)*0.5f);
+        // Side
+        out.push_back({x0,0,z0,nx,0.7f,nz});
+        out.push_back({x1,0,z1,nx,0.7f,nz});
+        out.push_back({0,height,0,nx,0.7f,nz});
+        // Ground cap
+        out.push_back({0,0,0,0,-1,0});
+        out.push_back({x1,0,z1,0,-1,0});
+        out.push_back({x0,0,z0,0,-1,0});
+    }
+}
+
+static void addRock(std::vector<Vertex>& out){
+    const Vec3 v[6]={{0,1.0f,0},{0,-0.8f,0},{-1,0,0},{1,0,0},{0,0,-1},{0,0,1}};
+    const int tri[8][3]={{0,2,4},{0,4,3},{0,3,5},{0,5,2},{1,4,2},{1,3,4},{1,5,3},{1,2,5}};
+    for(const auto& t:tri){
+        Vec3 a=v[t[0]],b=v[t[1]],cc=v[t[2]];
+        Vec3 n=norm(cross(b-a,cc-a));
+        out.push_back({a.x,a.y,a.z,n.x,n.y,n.z});
+        out.push_back({b.x,b.y,b.z,n.x,n.y,n.z});
+        out.push_back({cc.x,cc.y,cc.z,n.x,n.y,n.z});
+    }
+}
+
 static void addCube(std::vector<Vertex>& out,float x,float y,float z,float sx,float sy,float sz){
     static const float p[36][6]={
         {-1,-1,-1,0,0,-1},{1,-1,-1,0,0,-1},{1,1,-1,0,0,-1},
@@ -258,6 +289,8 @@ static void addCube(std::vector<Vertex>& out,float x,float y,float z,float sx,fl
 
 struct Renderer::Impl {
     GLuint pbr=0,sky=0,vao=0,vbo=0,skyVao=0;
+    GLuint shapeVbo[3]{},shapeVao[3]{};
+    int shapeCount[3]{};
     std::vector<Vertex> objects;
     std::vector<SceneInstance> scene;
     int width=1,height=1;
@@ -274,6 +307,11 @@ struct Renderer::Impl {
         if(vbo)glDeleteBuffers(1,&vbo);
         if(vao)glDeleteVertexArrays(1,&vao);
         if(skyVao)glDeleteVertexArrays(1,&skyVao);
+        for(int i=0;i<3;i++){
+            if(shapeVbo[i])glDeleteBuffers(1,&shapeVbo[i]);
+            if(shapeVao[i])glDeleteVertexArrays(1,&shapeVao[i]);
+            shapeVbo[i]=shapeVao[i]=0;shapeCount[i]=0;
+        }
         if(pbr)glDeleteProgram(pbr);
         if(sky)glDeleteProgram(sky);
         vbo=vao=skyVao=pbr=sky=0;ready=false;
@@ -309,6 +347,20 @@ struct Renderer::Impl {
         glEnableVertexAttribArray(0);glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,sizeof(Vertex),(void*)0);
         glEnableVertexAttribArray(1);glVertexAttribPointer(1,3,GL_FLOAT,GL_FALSE,sizeof(Vertex),(void*)(3*sizeof(float)));
         glBindVertexArray(0);
+        std::vector<Vertex> shapes[3];
+        addCube(shapes[0],0,0,0,1,1,1);
+        addCone(shapes[1],1.0f,2.0f,12);
+        addRock(shapes[2]);
+        for(int s=0;s<3;s++){
+            shapeCount[s]=static_cast<int>(shapes[s].size());
+            glGenVertexArrays(1,&shapeVao[s]);
+            glGenBuffers(1,&shapeVbo[s]);
+            glBindVertexArray(shapeVao[s]);glBindBuffer(GL_ARRAY_BUFFER,shapeVbo[s]);
+            glBufferData(GL_ARRAY_BUFFER,shapes[s].size()*sizeof(Vertex),shapes[s].data(),GL_STATIC_DRAW);
+            glEnableVertexAttribArray(0);glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,sizeof(Vertex),(void*)0);
+            glEnableVertexAttribArray(1);glVertexAttribPointer(1,3,GL_FLOAT,GL_FALSE,sizeof(Vertex),(void*)(3*sizeof(float)));
+            glBindVertexArray(0);
+        }
         glGenVertexArrays(1,&skyVao);
         glEnable(GL_DEPTH_TEST);glDepthFunc(GL_LEQUAL);glDisable(GL_CULL_FACE);
         ready=true;return true;
@@ -356,14 +408,19 @@ struct Renderer::Impl {
         glUniform1f(glGetUniformLocation(pbr,"uQuality"),qualityTier);
         glUniform1f(glGetUniformLocation(pbr,"uRoughness"),0.58f);
         glUniform1f(glGetUniformLocation(pbr,"uMetallic"),0.06f);
+        int visibleFoliage=0;
+        int foliageStride=qualityTier<=1.0f?3:(qualityTier<3.0f?2:1);
         for(const SceneInstance& n:scene){
-            if(n.kind==23)continue; // WorldEnvironment is represented by setEnvironment().
+            if(n.kind==23)continue;
+            if(n.kind==17 && ((visibleFoliage++)%foliageStride)!=0)continue;
             Mat4 m=model(n.x,n.y,n.z,n.rx*0.0174532925f,n.ry*0.0174532925f,n.rz*0.0174532925f,
                          std::max(0.05f,std::fabs(n.sx)),std::max(0.05f,std::fabs(n.sy)),std::max(0.05f,std::fabs(n.sz)));
             Vec3 color=colorForKind(n.kind);
             glUniform3f(glGetUniformLocation(pbr,"uColor"),color.x,color.y,color.z);
             glUniformMatrix4fv(glGetUniformLocation(pbr,"uModel"),1,GL_FALSE,m.m);
-            glDrawArrays(GL_TRIANGLES,0,36);
+            int shape=(n.kind==17)?1:(n.kind==5?2:0);
+            glBindVertexArray(shapeVao[shape]);
+            glDrawArrays(GL_TRIANGLES,0,shapeCount[shape]);
         }
         glBindVertexArray(0);
     }

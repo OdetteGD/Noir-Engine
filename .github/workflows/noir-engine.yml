@@ -3,7 +3,7 @@ name: Noir Engine CI
 on:
   workflow_dispatch:
   push:
-    branches: [main, noir-editor-upgrade, noir-editor-v1.2-world-csharp-vulkan, noir-world-environment-quality]
+    branches: [main, noir-editor-upgrade, noir-editor-v1.2-world-csharp-vulkan, noir-world-environment-quality, noir-v1.3-world-vulkan-csharp]
 
 permissions:
   contents: read
@@ -64,6 +64,11 @@ jobs:
         run: |
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "cmake;3.22.1" "ndk;28.1.13356709"
+      - name: Install Vulkan shader compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y glslang-tools
+          glslangValidator --version
       - uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: "8.10.2"

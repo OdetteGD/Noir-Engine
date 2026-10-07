@@ -10,6 +10,7 @@ import android.text.TextWatcher;
 import android.text.style.ForegroundColorSpan;
 import android.view.Gravity;
 import android.widget.*;
+import android.text.InputType;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -43,11 +44,16 @@ public final class NoirScriptIdeView {
         editor.setGravity(Gravity.TOP|Gravity.START);
         editor.setTypeface(android.graphics.Typeface.MONOSPACE);
         editor.setSingleLine(false);
+        editor.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
         editor.setHorizontallyScrolling(true);
         editor.setPadding(16,12,16,12);
         editor.setBackgroundColor(Color.rgb(7,11,18));
 
         final TextView diagnostics=new TextView(context);
+        final TextView dllStatus=new TextView(context);
+        dllStatus.setTextColor(Color.rgb(75,82,92));
+        dllStatus.setTextSize(10);
+        dllStatus.setTypeface(android.graphics.Typeface.MONOSPACE);
         diagnostics.setTextColor(Color.rgb(255,199,102));
         diagnostics.setTextSize(11);
         diagnostics.setPadding(14,8,14,8);
@@ -63,7 +69,7 @@ public final class NoirScriptIdeView {
         TextView title=label(context,file.getName()+"  •  "+language,Color.WHITE,13);
         bar.addView(title,new LinearLayout.LayoutParams(0,48,1));
 
-        Button check=button(context,"CHECK");
+        Button check=button(context,"CHECK + DLL");
         Button save=button(context,"SAVE");
         Button close=button(context,"CLOSE");
         bar.addView(check);bar.addView(save);bar.addView(close);
@@ -72,10 +78,23 @@ public final class NoirScriptIdeView {
         HorizontalScrollView hs=new HorizontalScrollView(context);
         hs.addView(editor,new HorizontalScrollView.LayoutParams(-1,-1));
         root.addView(hs,new LinearLayout.LayoutParams(-1,0,1));
+        root.addView(dllStatus,new LinearLayout.LayoutParams(-1,42));
         root.addView(diagnostics,new LinearLayout.LayoutParams(-1,76));
 
         AlertDialog dialog=new AlertDialog.Builder(context).setView(root).create();
         close.setOnClickListener(v->dialog.dismiss());
+
+        Runnable refreshDlls=()->{
+            if(!cs){dllStatus.setText("DLL CHECK: not applicable for "+language);return;}
+            File sdk=NoirCSharpRuntime.sdkDirectory(context);
+            if(sdk==null){dllStatus.setText("DLL CHECK: SDK storage unavailable");return;}
+            String[] required={"Noir.dll","Noir.CSharp.Compiler.dll","Microsoft.CodeAnalysis.dll","Microsoft.CodeAnalysis.CSharp.dll","Microsoft.CodeAnalysis.CSharp.Workspaces.dll"};
+            ArrayList<String> missing=new ArrayList<>();
+            for(String d:required)if(!new File(sdk,d).isFile())missing.add(d);
+            dllStatus.setText(missing.isEmpty()
+                    ?"DLL CHECK: PASS • "+sdk.getAbsolutePath()
+                    :"DLL CHECK: FAIL • missing "+missing);
+        };
 
         Runnable validate=()->{
             List<String> errors=validate(editor.getText().toString(),cs,shader);
@@ -89,7 +108,7 @@ public final class NoirScriptIdeView {
         };
         Runnable highlight=()->highlight(editor,cs,shader);
 
-        check.setOnClickListener(v->{validate.run();highlight.run();});
+        check.setOnClickListener(v->{refreshDlls.run();validate.run();highlight.run();});
         save.setOnClickListener(v->{
             // Never write an invalid source file. The previous editor wrote first and
             // only validated afterward, which made malformed C# appear "clean" after save.
@@ -115,7 +134,7 @@ public final class NoirScriptIdeView {
             public void afterTextChanged(Editable e){}
         });
 
-        dialog.setOnShowListener(v->{highlight.run();validate.run();});
+        dialog.setOnShowListener(v->{refreshDlls.run();highlight.run();validate.run();});
         dialog.show();
         if(dialog.getWindow()!=null)dialog.getWindow().setLayout(-1,-1);
     }
@@ -235,6 +254,12 @@ public final class NoirScriptIdeView {
                 out.add("Line "+(li+1)+": type name must start with a letter or underscore");
             if(t.matches(".*\\b(if|for|while|switch|catch)\\s*\\([^)]*\\)\\s*[^\\{;].*"))
                 out.add("Line "+(li+1)+": control statement is missing its block");
+            if(t.matches(".*\\b(class|struct|interface|enum)\\s+[A-Za-z_][A-Za-z0-9_]*\\s*$"))
+                out.add("Line "+(li+1)+": type declaration is missing a body");
+            if(t.matches(".*\\b(public|private|protected|internal)\\s*$"))
+                out.add("Line "+(li+1)+": access modifier is incomplete");
+            if(t.matches(".*[=+\\-*/]\\s*$"))
+                out.add("Line "+(li+1)+": expression is incomplete");
 
             if(t.matches("^[!\\$%&*+\\-./:<=>?@\\[\\]\\^|~#]+[A-Za-z0-9_]*$")
                     && !t.endsWith(";") && !t.startsWith("//") && !t.startsWith("#")){
