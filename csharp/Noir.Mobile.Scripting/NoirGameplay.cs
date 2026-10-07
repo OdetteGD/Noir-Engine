@@ -22,7 +22,7 @@ public static class Geometry3D
 {
     public static bool SegmentIntersectsSphere(Vector3 from,Vector3 to,Vector3 center,float radius){var d=to-from;var l=d.LengthSquared();if(l<1e-8f)return Vector3.Distance(from,center)<=radius;var t=Mathf.Clamp01(Vector3.Dot(center-from,d)/l);return Vector3.Distance(from+d*t,center)<=radius;}
 }
-public static class OS{public static string GetName()=>OperatingSystem.IsAndroid()?"Android":OperatingSystem.IsWindows()?"Windows":OperatingSystem.IsLinux()?"Linux":"Unknown";public static int ProcessorCount=>Environment.ProcessorCount;public static string VersionString=>Environment.OSVersion.VersionString;}
+public static class OS{public static string GetName()=>OperatingSystem.IsAndroid()?"Android":OperatingSystem.IsWindows()?"Windows":OperatingSystem.IsLinux()?"Linux":"Unknown";public static int ProcessorCount=>System.Environment.ProcessorCount;public static string VersionString=>System.Environment.OSVersion.VersionString;}
 public static class ProjectSettings
 {
     private static readonly Dictionary<string,object?> Values=new(StringComparer.Ordinal);
